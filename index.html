@@ -487,7 +487,10 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     <p class="legend" data-str="STR_UI_RANK_RULE"></p>
     <ol class="rank-list" id="rankList"></ol>
     <p class="legend" id="rankNote"></p>
-    <div class="actions"><button class="btn" id="closeRank" type="button" data-str="STR_UI_CLOSE"></button></div>
+    <div class="actions">
+      <button class="btn" id="opsBtn" type="button" data-str="STR_OPS_TITLE" hidden></button>
+      <button class="btn" id="closeRank" type="button" data-str="STR_UI_CLOSE"></button>
+    </div>
   </div>
 </div>
 
@@ -559,7 +562,8 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     STR_UI_RANK_SOMEONE:      { ko: "플레이어", en: "Player", ja: "プレイヤー" },
     STR_OPS_TITLE:            { ko: "수집 지표", en: "Collected metrics", ja: "収集指標" },
     STR_OPS_NOTE:             { ko: "이 기기 기록: 유저 {players}명, 시도 {plays}회", en: "This device: {players} players, {plays} attempts", ja: "この端末の記録：ユーザー{players}人、挑戦{plays}回" },
-    STR_OPS_EXPORT:           { ko: "로그 내보내기 (JSON)", en: "Export logs (JSON)", ja: "ログを書き出す (JSON)" },
+    STR_OPS_NOTE_SHARED:      { ko: "모든 플레이어: 유저 {players}명, 시도 {plays}회", en: "All players: {players} players, {plays} attempts", ja: "全プレイヤー：ユーザー{players}人、挑戦{plays}回" },
+    STR_OPS_EXPORT:          { ko: "로그 내보내기 (JSON)", en: "Export logs (JSON)", ja: "ログを書き出す (JSON)" },
     STR_OPS_G_CASUAL:         { ko: "캐주얼, 초반 이탈", en: "Casual, early churn", ja: "カジュアル、序盤の離脱" },
     STR_OPS_G_PIECE:          { ko: "새 기물과 이탈", en: "New pieces and churn", ja: "新しい駒と離脱" },
     STR_OPS_G_HURDLE:         { ko: "허들, 쉬어가는 길 영향", en: "Hurdles and rest roads", ja: "ハードルと休憩の道" },
@@ -911,13 +915,14 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     flushLogs();
   }
   const logPlay = field => { if (!play) return; play[field]++; play._last = Date.now(); saveLog(); };
-  // send finished rows the shared store has not received yet (claude.ai only)
+  // send finished rows the shared store has not received yet (claude.ai only).
+  // Each player writes only their own players/<uid> and playlogs/<uid>/rows/<play_id>; owner and editors read all.
   async function flushLogs() {
     if (!RANK.db || !RANK.uid) return;
     try {
       await RANK.db.doc("players/" + RANK.uid).set(cleanRow(LOG.player));
       for (const r of LOG.plays) if (r.result && !r._sent) {
-        await RANK.db.doc("playlogs/" + r.play_id).set({ ...cleanRow(r), uid: RANK.uid });
+        await RANK.db.doc(`playlogs/${RANK.uid}/rows/${r.play_id}`).set(cleanRow(r));
         r._sent = 1;
       }
       saveLog();
@@ -1477,6 +1482,8 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
       if (!db) return;
       RANK.db = db; RANK.user = user;
       RANK.uid = user ? await user.id() : null;
+      RANK.canEdit = user ? await user.canEdit() : false;   // owner / editors see everyone's metrics
+      $("opsBtn").hidden = !RANK.canEdit;
       flushLogs();
       db.collection("ranks").limit(1000).onSnapshot(snap => {
         RANK.docs = snap.docs; RANK.live = true;
@@ -1563,8 +1570,22 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   // ---------- wiring ----------
   // pointerdown reacts the moment a finger touches the board (no click delay on phones)
   // ---------- collected metrics view (#metrics) ----------
-  function openOps() {
-    const m = computeMetrics([LOG.player], LOG.plays, id => STAGES[id - 1] && STAGES[id - 1][3]);
+  // Owner / editors on claude.ai see every player's rows from the shared store; everyone else sees this device.
+  let opsData = null;
+  async function loadOpsData() {
+    if (RANK.db && RANK.canEdit) {
+      try {
+        const ps = (await RANK.db.collection("players").limit(1000).get()).docs;
+        const plays = [];
+        for (const p of ps) for (const r of (await RANK.db.collection(`playlogs/${p.id}/rows`).limit(1000).get()).docs) plays.push(r.data());
+        return { shared: true, players: ps.map(p => p.data()), plays };
+      } catch {}
+    }
+    return { shared: false, players: [cleanRow(LOG.player)], plays: LOG.plays.map(cleanRow) };
+  }
+  async function openOps() {
+    opsData = await loadOpsData();
+    const m = computeMetrics(opsData.players, opsData.plays, id => STAGES[id - 1] && STAGES[id - 1][3]);
     const pct = x => x ? Math.round(x.v * 100) + "%" : "–";
     const num = x => x ? x.v.toFixed(2) : "–";
     const groups = [
@@ -1598,17 +1619,24 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
         list.appendChild(row);
       }
     }
-    $("opsNote").textContent = t("STR_OPS_NOTE", { players: 1, plays: LOG.plays.filter(r => r.result).length });
+    $("opsNote").textContent = t(opsData.shared ? "STR_OPS_NOTE_SHARED" : "STR_OPS_NOTE",
+      { players: opsData.players.length, plays: opsData.plays.filter(r => r.result).length });
     $("opsOverlay").hidden = false;
   }
-  function exportLogs() {
-    const data = { exported_at: iso(), players: [cleanRow(LOG.player)], plays: LOG.plays.map(cleanRow) };
+  async function exportLogs() {
+    const d = opsData || await loadOpsData();
+    const json = JSON.stringify({ exported_at: iso(), players: d.players, plays: d.plays }, null, 1);
+    const filename = `knight-tour-log-${today()}.json`;
+    // on claude.ai the page cannot download by itself: the platform asks the viewer to save the file
+    const downloads = window.claude?.use ? await claude.use("downloads").catch(() => null) : null;
+    if (downloads) { try { await downloads.save({ filename, data: json }); } catch {} return; }
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
-    a.download = `knight-tour-log-${today()}.json`;
+    a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
+  $("opsBtn").addEventListener("click", () => { $("rankOverlay").hidden = true; openOps(); });
   $("opsExport").addEventListener("click", exportLogs);
   $("closeOps").addEventListener("click", () => { $("opsOverlay").hidden = true; });
   $("opsOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
