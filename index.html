@@ -224,44 +224,7 @@ img { -webkit-user-drag: none; }
 }
 .exit-btn svg { width: 22px; height: 22px; fill: none; stroke: var(--ink); stroke-width: 3.5; stroke-linecap: round; }
 .exit-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
-.daily-btn { position: relative; }
 .stage-btn small { font-variant-numeric: tabular-nums; }
-.app.daily .progress .label img { display: none; }
-.app.daily .stage-btn { background: var(--pink); color: var(--paper); }
-.daily-btn svg { stroke-width: 2.4; }
-.daily-btn .star { fill: var(--gold); stroke: var(--ink); stroke-width: 1.2; }
-.daily-btn .dot {
-  position: absolute; top: -4px; right: -4px; width: 12px; height: 12px; border-radius: 50%;
-  background: var(--pink-deep); border: 2px solid var(--paper);
-}
-.daily-hints { font-family: var(--f-display); font-size: 15px; color: var(--ink) !important; background: var(--gold); border-radius: 10px; padding: 4px 12px; }
-.daily-list { display: flex; flex-direction: column; gap: 10px; width: 100%; }
-.daily-row {
-  display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; text-align: left;
-  border: 3px solid var(--ink); border-radius: 14px; padding: 10px 12px; background: var(--paper);
-}
-.daily-row.done { background: #FFF1F5; }
-.daily-row b { font-family: var(--f-display); font-weight: 400; font-size: 18px; display: block; }
-.daily-row small { color: var(--ink-soft); font-size: 13px; }
-.daily-row .btn { min-height: 40px; padding: 6px 12px; font-size: 15px; box-shadow: 0 3px 0 var(--ink); }
-.rank-tabs { display: flex; gap: 6px; width: 100%; }
-.rank-tabs button {
-  flex: 1; font-family: var(--f-display); font-size: 15px; color: var(--ink); cursor: pointer;
-  background: var(--lilac); border: 3px solid var(--ink); border-radius: 12px; padding: 6px 0;
-}
-.rank-tabs button[aria-selected="true"] { background: var(--gold); }
-.rank-list { list-style: none; margin: 0; padding: 0; width: 100%; max-height: 44vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-.rank-list li {
-  display: grid; grid-template-columns: 34px 30px 1fr auto; gap: 8px; align-items: center; text-align: left;
-  border: 2px solid var(--lilac); border-radius: 12px; padding: 6px 10px; font-size: 14px;
-}
-.rank-list li.me { border-color: var(--pink-deep); background: #FFF1F5; }
-.rank-list .no { font-family: var(--f-display); font-size: 17px; text-align: center; }
-.rank-list img { width: 28px; height: 28px; border-radius: 50%; }
-.rank-list .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rank-list .sc { font-variant-numeric: tabular-nums; color: var(--ink-soft); }
-.rank-list .empty { display: block; border: 0; text-align: center; color: var(--ink-soft); }
-.rank-line { font-family: var(--f-display); font-size: 16px; color: var(--ink) !important; }
 .overlay.ended { background: linear-gradient(180deg, var(--sky) 0%, var(--mint) 100%); z-index: 26; }
 /* out of hints: the badge turns into an ad marker */
 .act.ad .count { background: var(--gold); color: var(--ink); font-size: 11px; padding: 0 5px; }
@@ -382,9 +345,9 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
       <div class="fill" id="progFill"></div>
       <div class="label"><img src="img/flower.png" alt=""><span id="progText">1 / 6</span></div>
     </div>
-    <button class="exit-btn daily-btn" id="dailyBtn" type="button" data-str-aria="STR_UI_DAILY">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/><path class="star" d="M12 12.2l1.1 2.2 2.4.3-1.8 1.6.5 2.4-2.2-1.2-2.2 1.2.5-2.4-1.8-1.6 2.4-.3z"/></svg>
-      <i class="dot" id="dailyDot" hidden></i>
+    <!-- owner / editors on claude.ai only: collected metrics of every player -->
+    <button class="exit-btn ops-btn" id="opsBtn" type="button" data-str-aria="STR_OPS_TITLE" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V11M12 19V5M19 19v-6"/></svg>
     </button>
     <button class="exit-btn" id="exitBtn" type="button" data-str-aria="STR_UI_EXIT">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -414,10 +377,8 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     <p id="clearSub"></p>
     <div class="stats"><span id="statUndo"></span><span id="statHint"></span></div>
     <p class="reward" id="clearReward" hidden></p>
-    <p class="rank-line" id="clearRank" hidden></p>
     <div class="actions">
       <button class="btn pink" id="nextBtn" type="button"></button>
-      <button class="btn" id="clearRankBtn" type="button" data-str="STR_UI_RANK" hidden></button>
     </div>
   </div>
 </div>
@@ -463,37 +424,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   </div>
 </div>
 
-<!-- daily puzzles: three per day (easy / normal / hard), their own hint pool -->
-<div class="overlay sheet" id="dailyOverlay" hidden>
-  <div class="card" role="dialog" aria-modal="true" aria-labelledby="dailyTitle">
-    <div class="grab" aria-hidden="true"></div>
-    <h2 id="dailyTitle" data-str="STR_UI_DAILY_TITLE"></h2>
-    <p class="legend" id="dailyDate"></p>
-    <p class="daily-hints" id="dailyHints"></p>
-    <div class="daily-list" id="dailyList"></div>
-    <div class="actions">
-      <button class="btn" id="dailyMainBtn" type="button" data-str="STR_UI_BACK_MAIN" hidden></button>
-      <button class="btn" id="closeDaily" type="button" data-str="STR_UI_CLOSE"></button>
-    </div>
-  </div>
-</div>
-
-<!-- ranking: fewest hints first, then fastest clear time; live when shared data is available -->
-<div class="overlay sheet" id="rankOverlay" hidden>
-  <div class="card" role="dialog" aria-modal="true" aria-labelledby="rankTitle">
-    <div class="grab" aria-hidden="true"></div>
-    <h2 id="rankTitle" data-str="STR_UI_RANK"></h2>
-    <div class="rank-tabs" id="rankTabs" role="tablist"></div>
-    <p class="legend" data-str="STR_UI_RANK_RULE"></p>
-    <ol class="rank-list" id="rankList"></ol>
-    <p class="legend" id="rankNote"></p>
-    <div class="actions">
-      <button class="btn" id="opsBtn" type="button" data-str="STR_OPS_TITLE" hidden></button>
-      <button class="btn" id="closeRank" type="button" data-str="STR_UI_CLOSE"></button>
-    </div>
-  </div>
-</div>
-
 <!-- collected metrics (open with #metrics): computed from this device's Player / PlayLog rows -->
 <div class="overlay sheet" id="opsOverlay" hidden>
   <div class="card" role="dialog" aria-modal="true" aria-labelledby="opsTitle">
@@ -532,34 +462,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     STR_UI_STAT_HINT:         { ko: "힌트 {count}회", en: "Hint ×{count}", ja: "ヒント {count}回" },
     STR_UI_NEXT:              { ko: "다음 스테이지", en: "Next stage", ja: "次のステージ" },
     STR_UI_CLOSE:             { ko: "닫기", en: "Close", ja: "閉じる" },
-    STR_UI_DAILY:             { ko: "일일 퍼즐", en: "Daily puzzles", ja: "デイリーパズル" },
-    STR_UI_DAILY_TITLE:       { ko: "오늘의 퍼즐", en: "Today's puzzles", ja: "今日のパズル" },
-    STR_UI_DAILY_HINTS:       { ko: "오늘의 힌트 {count} / {max} · 매일 리셋", en: "Daily hints {count} / {max} · resets every day", ja: "今日のヒント {count} / {max}・毎日リセット" },
-    STR_UI_DAILY_EASY:        { ko: "쉬움", en: "Easy", ja: "かんたん" },
-    STR_UI_DAILY_NORMAL:      { ko: "보통", en: "Normal", ja: "ふつう" },
-    STR_UI_DAILY_HARD:        { ko: "어려움", en: "Hard", ja: "むずかしい" },
-    STR_UI_DAILY_LABEL:       { ko: "{name}", en: "{name}", ja: "{name}" },
-    STR_UI_DAILY_NEW:         { ko: "도전 전", en: "Not started", ja: "未挑戦" },
-    STR_UI_DAILY_PLAYING:     { ko: "진행 중 · {time}", en: "In progress · {time}", ja: "挑戦中・{time}" },
-    STR_UI_DAILY_DONE:        { ko: "완료 · 힌트 {hints} · {time}", en: "Done · {hints} hints · {time}", ja: "クリア・ヒント{hints}・{time}" },
-    STR_UI_DAILY_PLAY:        { ko: "도전", en: "Play", ja: "挑戦" },
-    STR_UI_DAILY_CONTINUE:    { ko: "이어하기", en: "Continue", ja: "続ける" },
-    STR_UI_DAILY_REPLAY:      { ko: "다시 보기", en: "Replay", ja: "もう一度" },
-    STR_UI_DAILY_LIST:        { ko: "일일 퍼즐 목록", en: "Daily puzzles", ja: "デイリー一覧" },
-    STR_UI_DAILY_CLEAR_TITLE: { ko: "오늘의 퍼즐 클리어! ({name})", en: "Daily puzzle cleared! ({name})", ja: "今日のパズルクリア！（{name}）" },
-    STR_UI_DAILY_CLEAR_DESC:  { ko: "기록: 힌트 {hints}회 · {time}", en: "Record: {hints} hints · {time}", ja: "記録：ヒント{hints}回・{time}" },
-    STR_UI_DAILY_PRACTICE:    { ko: "연습 플레이라 랭킹에는 첫 기록만 반영돼요.", en: "Practice run: only your first clear counts for the ranking.", ja: "練習プレイ：ランキングには最初の記録だけが反映されます。" },
-    STR_UI_BACK_MAIN:         { ko: "메인 스테이지로", en: "Back to stages", ja: "ステージへ戻る" },
-    STR_UI_RANK:              { ko: "랭킹", en: "Ranking", ja: "ランキング" },
-    STR_UI_RANK_RULE:         { ko: "힌트를 적게 쓴 순 → 클리어 시간이 짧은 순", en: "Fewest hints first, then fastest time", ja: "ヒントが少ない順 → タイムが速い順" },
-    STR_UI_RANK_MINE:         { ko: "내 순위 {rank}위 / {total}명", en: "Your rank: {rank} of {total}", ja: "あなたの順位：{total}人中{rank}位" },
-    STR_UI_RANK_ROW:          { ko: "힌트 {hints} · {time}", en: "{hints} hints · {time}", ja: "ヒント{hints}・{time}" },
-    STR_UI_RANK_EMPTY:        { ko: "아직 기록이 없어요. 첫 번째 주인공이 되어 보세요!", en: "No records yet. Be the first!", ja: "まだ記録がありません。最初の挑戦者になろう！" },
-    STR_UI_RANK_LIVE:         { ko: "실시간으로 갱신 중", en: "Updating live", ja: "リアルタイム更新中" },
-    STR_UI_RANK_OFFLINE:      { ko: "실시간 랭킹은 claude.ai에서 열었을 때 표시돼요. 지금은 내 기록만 보여요.", en: "The live ranking appears when opened on claude.ai. Showing only your record.", ja: "リアルタイムランキングはclaude.aiで開くと表示されます。今は自分の記録だけです。" },
-    STR_UI_RANK_SAVE_FAIL:    { ko: "랭킹 등록 권한이 없어 기록이 이 기기에만 저장됐어요.", en: "No permission to post to the ranking. Saved on this device only.", ja: "ランキングへの登録権限がないため、この端末にのみ保存しました。" },
-    STR_UI_RANK_ME:           { ko: "나", en: "You", ja: "自分" },
-    STR_UI_RANK_SOMEONE:      { ko: "플레이어", en: "Player", ja: "プレイヤー" },
     STR_OPS_TITLE:            { ko: "수집 지표", en: "Collected metrics", ja: "収集指標" },
     STR_OPS_NOTE:             { ko: "이 기기 기록: 유저 {players}명, 시도 {plays}회", en: "This device: {players} players, {plays} attempts", ja: "この端末の記録：ユーザー{players}人、挑戦{plays}回" },
     STR_OPS_NOTE_SHARED:      { ko: "모든 플레이어: 유저 {players}명, 시도 {plays}회", en: "All players: {players} players, {plays} attempts", ja: "全プレイヤー：ユーザー{players}人、挑戦{plays}回" },
@@ -612,8 +514,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     STR_DLG_HINT:               { ko: "반짝이는 별 칸으로 가 봐!", en: "Try the sparkling star tile!", ja: "キラキラの星のマスへ行ってみて！" },
     STR_DLG_HINT_REWIND:        { ko: "그 길로는 성까지 못 가. {count}칸 되돌아왔어! 여기서 반짝이는 별 칸으로 가 봐.", en: "That way can't reach the castle. I went back {count} tiles! Try the star tile from here.", ja: "その道じゃお城に行けないよ。{count}マス戻ったよ！ここから星のマスへ行ってみて。" },
     STR_DLG_HINT_EMPTY:         { ko: "힌트를 다 썼어. 광고를 보면 하나 더 받을 수 있어!", en: "No hints left. Watch an ad to get one more!", ja: "ヒントを使い切ったよ。広告を見るともう1つもらえるよ！" },
-    STR_DLG_DAILY_START:        { ko: "오늘의 퍼즐! {count}칸이야. 여기선 오늘 받은 힌트만 쓸 수 있어.", en: "Today's puzzle! {count} tiles. Only today's hints work here.", ja: "今日のパズル！{count}マスだよ。ここでは今日のヒントだけ使えるよ。" },
-    STR_DLG_DAILY_HINT_EMPTY:   { ko: "오늘의 힌트를 다 썼어. 내일 다시 5개가 생겨!", en: "Today's hints are used up. You'll get 5 again tomorrow!", ja: "今日のヒントは使い切ったよ。明日また5つもらえるよ！" },
     STR_DLG_HINT_AD_REWARD:    { ko: "힌트 1개를 받았어! 힌트 버튼을 눌러 봐.", en: "Got 1 hint! Tap the Hint button.", ja: "ヒントを1つもらったよ！ヒントボタンを押してみて。" },
     STR_DLG_INTRO_K:            { ko: "왕관 칸이 나타났어! 왕관을 밟으면 다음 한 번은 왕처럼 바로 옆 칸으로 한 걸음 갈 수 있어.", en: "A crown tile! Step on it and your next move goes one square in any direction, like a king.", ja: "王冠マスが出たよ！踏むと次の1回だけ、王様みたいにとなりのマスへ1歩進めるよ。" },
     STR_DLG_INTRO_R:            { ko: "룩 칸이 나타났어! 룩을 밟으면 다음 한 번은 가로세로 직선으로 원하는 칸까지 달릴 수 있어. 바위는 못 넘어!", en: "A rook tile! Step on it and your next move runs straight across or up/down to any tile. Rocks block the way!", ja: "ルークマスが出たよ！踏むと次の1回だけ、たて・よこにまっすぐ好きなマスまで走れるよ。岩はこえられない！" },
@@ -715,7 +615,7 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   // Draw a random route of the target length (Warnsdorff + noise); every cell off the route becomes a rock.
   // Gimmick cells are placed on the route at roughly even steps: standing on one, the next move uses that piece.
   // A rook / bishop step only crosses cells already on the route, so the line stays open once rocks are placed.
-  // spec = [board size, LEN, seed, type, pieces, count] (a StageTable row, or a daily puzzle's spec)
+  // spec = [board size, LEN, seed, type, pieces, count] (a StageTable row)
   function genLevel(spec) {
     const [n, len, seed, type, kinds = "", gcount = 0] = spec;
     const full = len === n * n;
@@ -867,14 +767,14 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   let hints = Number.isInteger(saved.hints) && saved.hints >= 0 ? saved.hints : HINT_START;
   // stages are played strictly in order: always resume at the first stage not cleared yet
   const firstOpen = () => { let i = 0; while (i < STAGES.length - 1 && cleared.has(i)) i++; return i; };
-  let mainIndex = firstOpen();   // current main stage, kept while a daily puzzle is open
+  let mainIndex = firstOpen();   // current stage
   const persist = () => { store.set({ cleared: [...cleared], stage: mainIndex, hints }); syncPlayer(); };
 
   // ---------- logs: Player + PlayLog (system doc table chapter, proposal 4.1) ----------
   // Player = this device's user state. PlayLog = one row per main-stage attempt; 다시하기 closes it as restart,
-  // leaving (X, daily puzzle, closed app) as quit. An attempt still open at the next visit is closed as quit
+  // leaving (X, closed app) as quit. An attempt still open at the next visit is closed as quit
   // at its last action. Rows live on this device (knight-tour-log); on claude.ai each finished row and the Player
-  // are also written to the artifact store (players/<user id>, playlogs/<play_id>). Daily puzzles are not logged.
+  // are also written to the artifact store (players/<user id>, playlogs/<user id>/rows/<play_id>).
   const LKEY = "knight-tour-log", LOG_MAX = 3000;
   const iso = (ms = Date.now()) => new Date(ms).toISOString();
   const newId = p => p + (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
@@ -918,11 +818,11 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   // send finished rows the shared store has not received yet (claude.ai only).
   // Each player writes only their own players/<uid> and playlogs/<uid>/rows/<play_id>; owner and editors read all.
   async function flushLogs() {
-    if (!RANK.db || !RANK.uid) return;
+    if (!SHARED.db || !SHARED.uid) return;
     try {
-      await RANK.db.doc("players/" + RANK.uid).set(cleanRow(LOG.player));
+      await SHARED.db.doc("players/" + SHARED.uid).set(cleanRow(LOG.player));
       for (const r of LOG.plays) if (r.result && !r._sent) {
-        await RANK.db.doc(`playlogs/${RANK.uid}/rows/${r.play_id}`).set(cleanRow(r));
+        await SHARED.db.doc(`playlogs/${SHARED.uid}/rows/${r.play_id}`).set(cleanRow(r));
         r._sent = 1;
       }
       saveLog();
@@ -965,29 +865,7 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   }
   // ==/METRICS==
 
-  // Daily puzzles: three per local date, generated from the date (same puzzles for everyone that day),
-  // each with exactly one answer route. Daily hints are a separate pool of 5 that resets every day.
-  const DAILY = [
-    { id: "easy", size: 5, len: 14, key: "STR_UI_DAILY_EASY" },
-    { id: "normal", size: 6, len: 21, key: "STR_UI_DAILY_NORMAL" },
-    { id: "hard", size: 7, len: 30, key: "STR_UI_DAILY_HARD" },
-  ];
-  const DAILY_HINTS = 5, DKEY = "knight-tour-daily";
-  const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
-  function loadDailyState() {
-    let d = null;
-    try { d = JSON.parse(localStorage.getItem(DKEY)); } catch {}
-    if (!d || d.date !== today()) d = { date: today(), hints: DAILY_HINTS, runs: {} };   // a new day resets hints and runs
-    return d;
-  }
-  let daily = loadDailyState();
-  const saveDaily = () => { try { localStorage.setItem(DKEY, JSON.stringify(daily)); } catch {} };
-  const run = id => (daily.runs[id] ||= { start: null, hints: 0, done: false, time: 0 });
-  const fmtTime = ms => { const s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60;
-    return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
-
   let L = null, S = null, cellPx = 40;
-  let mode = "main";                      // "main" | "daily"
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const $ = id => document.getElementById(id);
@@ -1019,9 +897,8 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   }
 
   function loadStage(i, replay) {
-    mode = "main"; mainIndex = i;
+    mainIndex = i;
     startPlay(i);
-    document.querySelector(".app").classList.remove("daily");
     L = genLevel(STAGES[i]);
     L.index = i;
     L.nb = neighbors(L);
@@ -1047,52 +924,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     if (S.path.length > 1) afterMove(false);
   }
 
-  // The day's puzzle for one difficulty: candidate seeds from (date, difficulty, k) until the map has a single answer.
-  const strHash = s => { let h = 2166136261; for (const ch of s) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
-  const dailyCache = {};
-  function dailyLevel(date, def) {
-    const key = date + "|" + def.id;
-    if (dailyCache[key]) return dailyCache[key];
-    const keep = L;
-    let cand = null;
-    for (let k = 0; k < 400; k++) {
-      cand = genLevel([def.size, def.len, strHash(`${date}|${def.id}|${k}`), "N"]);
-      cand.nb = neighbors(cand);
-      L = cand;
-      const r = search([cand.start], 300000, 2);
-      if (r.count === 1 && r.next >= 0) break;
-    }
-    L = keep;
-    return (dailyCache[key] = cand);
-  }
-
-  let clock = 0;
-  function loadDaily(id) {
-    if (daily.date !== today()) daily = loadDailyState();
-    const def = DAILY.find(d => d.id === id);
-    endPlay("quit");
-    mode = "daily";
-    document.querySelector(".app").classList.add("daily");
-    L = dailyLevel(daily.date, def);
-    L.daily = def;
-    S = { path: [L.start], vis: new Uint8Array(L.n * L.n), hintsUsed: run(id).hints, undos: 0, busy: false, done: false, hintCell: -1, reward: 0, wrong: {} };
-    S.vis[L.start] = 1;
-    buildBoard();
-    layout();
-    render();
-    setMood("normal");
-    $("stageLabel").textContent = t("STR_UI_DAILY_LABEL", { name: t(def.key) });
-    say("STR_DLG_DAILY_START", { count: L.len });
-    clearInterval(clock);
-    clock = setInterval(() => { if (mode === "daily" && !S.done) render(); }, 1000);
-  }
-  // the daily clock starts on the first move or hint and keeps running across restarts and reloads
-  function startClock() {
-    if (mode !== "daily") return;
-    const r = run(L.daily.id);
-    if (!r.start && !r.done) { r.start = Date.now(); saveDaily(); }
-  }
-  const elapsed = () => { const r = run(L.daily.id); return r.done ? r.time : r.start ? Date.now() - r.start : 0; };
 
   function buildBoard() {
     const { n } = L;
@@ -1163,17 +994,10 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     });
     trail.firstChild.setAttribute("points", S.path.map(c => `${c % L.n + .5},${((c / L.n) | 0) + .5}`).join(" "));
     $("progText").textContent = `${S.path.length} / ${L.len}`;
-    if (mode === "daily") $("sizeLabel").textContent = fmtTime(elapsed());   // the daily clock sits where the board size is shown
     $("progFill").style.width = (S.path.length / L.len * 100) + "%";
-    if (mode === "daily") {                // daily puzzles use the day's own hint pool, no ads
-      $("hintCount").textContent = daily.hints;
-      $("hintBtn").classList.remove("ad");
-    } else {
-      // with no hints left the button stays active and opens the rewarded-ad offer
-      $("hintCount").textContent = hints > 0 ? hints : t("STR_UI_AD_BADGE");
-      $("hintBtn").classList.toggle("ad", hints <= 0);
-    }
-    $("dailyDot").hidden = DAILY.every(d => run(d.id).done);
+    // with no hints left the button stays active and opens the rewarded-ad offer
+    $("hintCount").textContent = hints > 0 ? hints : t("STR_UI_AD_BADGE");
+    $("hintBtn").classList.toggle("ad", hints <= 0);
     $("undoBtn").setAttribute("aria-disabled", S.path.length <= 1);
   }
 
@@ -1236,7 +1060,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
 
   function move(c) {
     const from = cur();
-    startClock();
     S.path.push(c); S.vis[c] = 1; S.hintCell = -1; S.busy = true;
     logPlay("move_count");
     setMood("jump");
@@ -1249,18 +1072,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     render();
     const left = L.len - S.path.length;
     if (left === 0) {
-      if (mode === "daily") {
-        const r = run(L.daily.id);
-        S.firstClear = !r.done;
-        if (!r.done) {                        // only the first clear of the day is a ranked record
-          r.done = true; r.time = r.start ? Date.now() - r.start : 0; saveDaily();
-          submitRank(L.daily.id, r.hints, r.time);
-        }
-        S.done = true; setMood("happy"); render(); buzz([30, 50, 30, 50, 60]);
-        say("STR_DLG_CLEAR");
-        setTimeout(showClear, reduced ? 0 : 550);
-        return;
-      }
       if (!cleared.has(L.index)) { S.reward = HINT_CLEAR_REWARD; hints += S.reward; }
       S.done = true; setMood("happy"); render(); buzz([30, 50, 30, 50, 60]);
       say("STR_DLG_CLEAR");
@@ -1306,7 +1117,8 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
 
   function restart() {
     if (S.busy) return;
-    if (mode === "daily") loadDaily(L.daily.id); else { endPlay("restart"); loadStage(L.index); }
+    endPlay("restart");
+    loadStage(L.index);
   }
 
   const search = (path, limit, countUpTo = 0) => searchLevel(L, path, limit, countUpTo);
@@ -1329,14 +1141,8 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
 
   function hint() {
     if (S.busy || S.done) return;
-    if (mode === "daily") {
-      if (daily.hints <= 0) { say("STR_DLG_DAILY_HINT_EMPTY"); return; }
-      startClock();
-      daily.hints--; run(L.daily.id).hints++; saveDaily();
-    } else {
-      if (hints <= 0) { openAd(); return; }
-      hints--; persist();
-    }
+    if (hints <= 0) { openAd(); return; }
+    hints--; persist();
     const { k, next } = findRewind();
     S.hintsUsed++;
     logPlay("hint_used");
@@ -1365,22 +1171,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
 
   // ---------- overlays ----------
   function showClear() {
-    $("clearRank").hidden = true;
-    $("clearRankBtn").hidden = mode !== "daily";
-    if (mode === "daily") {
-      const r = run(L.daily.id), name = t(L.daily.key);
-      $("clearTitle").textContent = t("STR_UI_DAILY_CLEAR_TITLE", { name });
-      $("clearSub").textContent = S.firstClear ? t("STR_UI_DAILY_CLEAR_DESC", { hints: r.hints, time: fmtTime(r.time) }) : t("STR_UI_DAILY_PRACTICE");
-      $("statUndo").textContent = t("STR_UI_STAT_UNDO", { count: S.undos });
-      $("statHint").textContent = t("STR_UI_STAT_HINT", { count: S.hintsUsed });
-      $("clearReward").hidden = true;
-      $("nextBtn").textContent = t("STR_UI_DAILY_LIST");
-      $("clearOverlay").hidden = false;
-      $("nextBtn").focus();
-      showMyRank();
-      petals();
-      return;
-    }
     const last = L.index === STAGES.length - 1;
     $("clearTitle").textContent = last ? t("STR_UI_CLEAR_TITLE_LAST") : t("STR_UI_CLEAR_TITLE", { stage: L.index + 1 });
     $("clearSub").textContent = t(last ? "STR_UI_CLEAR_DESC_LAST" : "STR_UI_CLEAR_DESC", { count: L.len });
@@ -1438,146 +1228,31 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     }, 1000);
   }
 
-  // ---------- daily list ----------
-  function openDaily() {
-    if (daily.date !== today()) { daily = loadDailyState(); }
-    $("dailyDate").textContent = daily.date;
-    $("dailyHints").textContent = t("STR_UI_DAILY_HINTS", { count: daily.hints, max: DAILY_HINTS });
-    const list = $("dailyList");
-    list.innerHTML = "";
-    for (const d of DAILY) {
-      const r = run(d.id);
-      const row = document.createElement("div");
-      row.className = "daily-row" + (r.done ? " done" : "");
-      const info = document.createElement("div");
-      const b = document.createElement("b"); b.textContent = `${t(d.key)}  ${d.size}×${d.size}`;
-      const sm = document.createElement("small");
-      sm.textContent = r.done ? t("STR_UI_DAILY_DONE", { hints: r.hints, time: fmtTime(r.time) })
-        : r.start ? t("STR_UI_DAILY_PLAYING", { time: fmtTime(Date.now() - r.start) }) : t("STR_UI_DAILY_NEW");
-      info.append(b, sm);
-      const play = document.createElement("button");
-      play.type = "button"; play.className = "btn pink";
-      play.textContent = t(r.done ? "STR_UI_DAILY_REPLAY" : r.start ? "STR_UI_DAILY_CONTINUE" : "STR_UI_DAILY_PLAY");
-      play.addEventListener("click", () => { $("dailyOverlay").hidden = true; loadDaily(d.id); });
-      const rk = document.createElement("button");
-      rk.type = "button"; rk.className = "btn"; rk.textContent = t("STR_UI_RANK");
-      rk.addEventListener("click", () => { $("dailyOverlay").hidden = true; openRank(d.id); });
-      row.append(info, play, rk);
-      list.appendChild(row);
-    }
-    $("dailyMainBtn").hidden = mode !== "daily";
-    $("dailyOverlay").hidden = false;
-  }
-
-  // ---------- ranking ----------
-  // Shared store (claude.ai artifact db): one document per player, ranks/<player id>,
-  // holding { r: { "<date>|<difficulty>": [hints, timeMs, clearedAt] } } for the last two weeks.
-  // Everyone reads all documents; each player writes only their own. Without the store, only this device's record is shown.
-  const RANK = { db: null, user: null, uid: null, docs: [], live: false, saveFailed: false };
-  let rankTab = "easy";
+  // ---------- shared store (claude.ai artifact db) ----------
+  // Only used for the logs: each player writes their own rows, owner and editors read everyone's.
+  const SHARED = { db: null, uid: null, canEdit: false };
   (async () => {
     try {
       if (!window.claude?.use) return;
       const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
       if (!db) return;
-      RANK.db = db; RANK.user = user;
-      RANK.uid = user ? await user.id() : null;
-      RANK.canEdit = user ? await user.canEdit() : false;   // owner / editors see everyone's metrics
-      $("opsBtn").hidden = !RANK.canEdit;
+      SHARED.db = db;
+      SHARED.uid = user ? await user.id() : null;
+      SHARED.canEdit = user ? await user.canEdit() : false;   // owner / editors see everyone's metrics
+      $("opsBtn").hidden = !SHARED.canEdit;
       flushLogs();
-      db.collection("ranks").limit(1000).onSnapshot(snap => {
-        RANK.docs = snap.docs; RANK.live = true;
-        if (!$("rankOverlay").hidden) renderRank();
-        if (!$("clearOverlay").hidden && mode === "daily") showMyRank();
-      }, () => { RANK.live = false; });
     } catch {}
   })();
 
-  function rankRows(id) {
-    const key = daily.date + "|" + id, rows = [];
-    for (const d of RANK.docs) {
-      const v = d.data()?.r?.[key];
-      if (Array.isArray(v) && v.length >= 2 && Number.isFinite(v[0]) && Number.isFinite(v[1])) rows.push({ id: d.id, h: v[0], t: v[1], at: v[2] || 0 });
-    }
-    // local record when this view has no shared store (or it has not posted yet)
-    const mine = run(id);
-    if (mine.done && !rows.some(x => x.id === RANK.uid)) rows.push({ id: RANK.uid || "local", h: mine.hints, t: mine.time, at: 0, local: true });
-    rows.sort((a, b) => a.h - b.h || a.t - b.t || a.at - b.at);   // fewest hints, then fastest, then earliest
-    return rows;
-  }
-
-  async function submitRank(id, h, time) {
-    if (!RANK.db || !RANK.uid) return;
-    try {
-      const ref = RANK.db.doc("ranks/" + RANK.uid);
-      const snap = await ref.get();
-      const r = { ...(snap.exists ? snap.data().r || {} : {}) };
-      const cutoff = Date.now() - 14 * 864e5;
-      for (const k of Object.keys(r)) if (!Array.isArray(r[k]) || (r[k][2] || 0) < cutoff) delete r[k];
-      r[daily.date + "|" + id] = [h, time, Date.now()];
-      await ref.set({ r });
-    } catch { RANK.saveFailed = true; }
-  }
-
-  function showMyRank() {
-    const rows = rankRows(L.daily.id);
-    const me = rows.findIndex(x => x.id === (RANK.uid || "local"));
-    if (me < 0) return;
-    $("clearRank").textContent = t("STR_UI_RANK_MINE", { rank: me + 1, total: rows.length });
-    $("clearRank").hidden = false;
-  }
-
-  function openRank(id) {
-    rankTab = id || rankTab;
-    const tabs = $("rankTabs");
-    tabs.innerHTML = "";
-    for (const d of DAILY) {
-      const b = document.createElement("button");
-      b.type = "button"; b.setAttribute("role", "tab"); b.textContent = t(d.key);
-      b.setAttribute("aria-selected", d.id === rankTab);
-      b.addEventListener("click", () => openRank(d.id));
-      tabs.appendChild(b);
-    }
-    $("rankOverlay").hidden = false;
-    renderRank();
-  }
-
-  async function renderRank() {
-    const rows = rankRows(rankTab), list = $("rankList");
-    const ids = rows.map(x => x.id).filter(x => x && x !== "local");
-    const ps = RANK.user && ids.length ? await RANK.user.profiles(ids) : {};
-    list.innerHTML = "";
-    if (!rows.length) {
-      const li = document.createElement("li"); li.className = "empty"; li.textContent = t("STR_UI_RANK_EMPTY"); list.appendChild(li);
-    }
-    rows.forEach((x, i) => {
-      const li = document.createElement("li");
-      const isMe = x.id === (RANK.uid || "local");
-      if (isMe) li.className = "me";
-      const no = document.createElement("span"); no.className = "no"; no.textContent = i + 1;
-      const img = document.createElement("img"); img.alt = "";
-      const p = ps[x.id];
-      if (p?.avatarUrl) img.src = p.avatarUrl; else img.src = IMG("knight_normal");
-      const nm = document.createElement("span"); nm.className = "nm";
-      nm.textContent = isMe ? (p && p.name ? `${p.name} (${t("STR_UI_RANK_ME")})` : t("STR_UI_RANK_ME")) : (p && p.name) || t("STR_UI_RANK_SOMEONE");
-      const sc = document.createElement("span"); sc.className = "sc"; sc.textContent = t("STR_UI_RANK_ROW", { hints: x.h, time: fmtTime(x.t) });
-      li.append(no, img, nm, sc);
-      list.appendChild(li);
-    });
-    $("rankNote").textContent = RANK.saveFailed ? t("STR_UI_RANK_SAVE_FAIL") : RANK.live ? t("STR_UI_RANK_LIVE") : t("STR_UI_RANK_OFFLINE");
-  }
-
-  // ---------- wiring ----------
-  // pointerdown reacts the moment a finger touches the board (no click delay on phones)
   // ---------- collected metrics view (#metrics) ----------
   // Owner / editors on claude.ai see every player's rows from the shared store; everyone else sees this device.
   let opsData = null;
   async function loadOpsData() {
-    if (RANK.db && RANK.canEdit) {
+    if (SHARED.db && SHARED.canEdit) {
       try {
-        const ps = (await RANK.db.collection("players").limit(1000).get()).docs;
+        const ps = (await SHARED.db.collection("players").limit(1000).get()).docs;
         const plays = [];
-        for (const p of ps) for (const r of (await RANK.db.collection(`playlogs/${p.id}/rows`).limit(1000).get()).docs) plays.push(r.data());
+        for (const p of ps) for (const r of (await SHARED.db.collection(`playlogs/${p.id}/rows`).limit(1000).get()).docs) plays.push(r.data());
         return { shared: true, players: ps.map(p => p.data()), plays };
       } catch {}
     }
@@ -1626,7 +1301,7 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   async function exportLogs() {
     const d = opsData || await loadOpsData();
     const json = JSON.stringify({ exported_at: iso(), players: d.players, plays: d.plays }, null, 1);
-    const filename = `knight-tour-log-${today()}.json`;
+    const filename = `knight-tour-log-${iso().slice(0, 10)}.json`;
     // on claude.ai the page cannot download by itself: the platform asks the viewer to save the file
     const downloads = window.claude?.use ? await claude.use("downloads").catch(() => null) : null;
     if (downloads) { try { await downloads.save({ filename, data: json }); } catch {} return; }
@@ -1636,12 +1311,14 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
-  $("opsBtn").addEventListener("click", () => { $("rankOverlay").hidden = true; openOps(); });
+  $("opsBtn").addEventListener("click", openOps);
   $("opsExport").addEventListener("click", exportLogs);
   $("closeOps").addEventListener("click", () => { $("opsOverlay").hidden = true; });
   $("opsOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
   addEventListener("hashchange", () => { if (location.hash === "#metrics") openOps(); });
 
+  // ---------- wiring ----------
+  // pointerdown reacts the moment a finger touches the board (no click delay on phones)
   board.addEventListener("pointerdown", e => {
     if (!L || !e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
     e.preventDefault();
@@ -1658,36 +1335,28 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   $("exitOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
   $("exitConfirmBtn").addEventListener("click", () => {
     persist();
-    if (mode === "main" && !S.done) endPlay("quit");
+    if (!S.done) endPlay("quit");
     $("exitOverlay").hidden = true;
     try { window.close(); } catch {}
     setTimeout(() => { $("endedOverlay").hidden = false; $("resumeBtn").focus(); }, 150);
   });
   $("resumeBtn").addEventListener("click", () => {
     $("endedOverlay").hidden = true;
-    if (mode === "main" && !S.done) startPlay(L.index);   // a resumed stage is a new attempt
+    if (!S.done) startPlay(L.index);   // a resumed stage is a new attempt
   });
   $("adWatchBtn").addEventListener("click", playAd);
   $("adCloseBtn").addEventListener("click", closeAd);
   $("adOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeAd(); });
   $("nextBtn").addEventListener("click", () => {
     $("clearOverlay").hidden = true;
-    if (mode === "daily") { openDaily(); return; }
     loadStage(L.index === STAGES.length - 1 ? 0 : L.index + 1);   // stages run in order; after the last one the journey starts over
   });
-  $("clearRankBtn").addEventListener("click", () => { $("clearOverlay").hidden = true; openRank(L.daily.id); });
-  $("dailyBtn").addEventListener("click", openDaily);
-  $("closeDaily").addEventListener("click", () => { $("dailyOverlay").hidden = true; });
-  $("dailyMainBtn").addEventListener("click", () => { $("dailyOverlay").hidden = true; clearInterval(clock); loadStage(mainIndex); });
-  $("dailyOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
-  $("closeRank").addEventListener("click", () => { $("rankOverlay").hidden = true; });
-  $("rankOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
   document.addEventListener("keydown", e => {
     if (!$("adPlaying").hidden || !$("endedOverlay").hidden) return;
     if (!$("exitOverlay").hidden) { if (e.key === "Escape") $("exitOverlay").hidden = true; return; }
     if (!$("adOverlay").hidden) { if (e.key === "Escape") closeAd(); return; }
-    if (!$("clearOverlay").hidden || !$("dailyOverlay").hidden || !$("rankOverlay").hidden || !$("opsOverlay").hidden) {
-      if (e.key === "Escape") { $("dailyOverlay").hidden = true; $("rankOverlay").hidden = true; $("opsOverlay").hidden = true; }
+    if (!$("clearOverlay").hidden || !$("opsOverlay").hidden) {
+      if (e.key === "Escape") $("opsOverlay").hidden = true;
       return;
     }
     const k = e.key.toLowerCase();
@@ -1701,12 +1370,10 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     LANG = lang;
     applyStaticText();
     if (lastSay) say(lastSay.key, lastSay.params);
-    if (L) $("stageLabel").textContent = mode === "daily" ? t("STR_UI_DAILY_LABEL", { name: t(L.daily.key) }) : t("STR_UI_STAGE", { stage: L.index + 1 });
-    if (!$("dailyOverlay").hidden) openDaily();
-    if (!$("rankOverlay").hidden) openRank();
+    if (L) $("stageLabel").textContent = t("STR_UI_STAGE", { stage: L.index + 1 });
     if (!$("opsOverlay").hidden) openOps();
   }
-  if (location.hash === "#debug") window.__kt = { tap: c => tap(c), undo: () => undo(), wrong: () => S.wrong, log: LOG, openOps, setLang, search, findRewind, loadStage, loadDaily, dailyLevel, daily: () => daily, rank: RANK, state: () => S, level: () => L, stages: STAGES };
+  if (location.hash === "#debug") window.__kt = { tap: c => tap(c), undo: () => undo(), wrong: () => S.wrong, log: LOG, openOps, setLang, search, findRewind, loadStage, shared: SHARED, state: () => S, level: () => L, stages: STAGES };
   new ResizeObserver(layout).observe(area);
 
   function boot(d) {
