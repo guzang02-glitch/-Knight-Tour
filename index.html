@@ -72,7 +72,7 @@ img { -webkit-user-drag: none; }
 }
 .stage-btn small { font-size: 12px; opacity: .75; }
 .stage-btn .chev { font-size: 12px; margin-left: 2px; }
-.stage-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.stage-btn { cursor: default; }   /* indicator only: stages are played in order */
 .progress {
   flex: 1; min-width: 0;
   background: var(--paper); border: 3px solid var(--ink); border-radius: 999px;
@@ -143,6 +143,19 @@ img { -webkit-user-drag: none; }
   position: absolute; font-family: var(--f-display); line-height: 1;
   font-size: calc(var(--c) * .22); color: var(--ink); font-variant-numeric: tabular-nums;
 }
+/* chess gimmick cells: standing on one, the next move uses that piece */
+.ct .piece {
+  width: 72%; height: 72%; display: grid; place-items: center; box-sizing: border-box;
+  border: 3px solid var(--ink); border-radius: 50%; background: var(--pc);
+  font-size: calc(var(--c) * .46); line-height: 1; color: var(--ink);
+  box-shadow: 0 3px 0 var(--ink); animation: pieceBob 1.6s ease-in-out infinite;
+}
+.ct .piece.K { --pc: #ffe08a; } .ct .piece.R { --pc: #ffc2d6; } .ct .piece.B { --pc: #d9cff7; }
+.ct .piece.mini {
+  width: 34%; height: 34%; font-size: calc(var(--c) * .2); border-width: 2px; box-shadow: none; animation: none;
+  justify-self: end; align-self: start; margin: 2%; z-index: 1;
+}
+@keyframes pieceBob { 50% { transform: translateY(-5%); } }
 @keyframes bloom { from { transform: scale(0) rotate(-90deg); } to { transform: scale(1) rotate(0); } }
 .ct.mark::after {
   content: ""; width: 36%; height: 36%; border-radius: 50%;
@@ -153,6 +166,12 @@ img { -webkit-user-drag: none; }
   width: 52%; height: 52%; background: var(--gold);
   box-shadow: 0 0 0 6px rgba(255, 212, 92, .45);
   animation: hintPulse .6s ease-in-out infinite alternate;
+}
+.ct.wrong::after {
+  content: ""; width: 40%; height: 40%; border-radius: 50%; box-sizing: border-box;
+  background: #F2727A; border: 3px solid var(--ink);
+  background-image: linear-gradient(45deg, transparent 44%, var(--paper) 44%, var(--paper) 56%, transparent 56%),
+                    linear-gradient(-45deg, transparent 44%, var(--paper) 44%, var(--paper) 56%, transparent 56%);
 }
 @keyframes pulse { from { transform: scale(.8); opacity: .75; } to { transform: scale(1); opacity: 1; } }
 @keyframes hintPulse { from { transform: scale(.85) rotate(0); } to { transform: scale(1.1) rotate(20deg); } }
@@ -326,6 +345,13 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
 .stage-grid button.hurdle { border-width: 4px; }
 .stage-grid { padding-top: 12px; row-gap: 14px; }
 
+/* metrics view (#metrics): one row per collected metric */
+.ops-list { width: 100%; max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.ops-list h3 { font-family: var(--f-display); font-weight: 400; font-size: 16px; margin: 6px 0 0; color: var(--pink-deep); }
+.ops-row { border: 2px solid var(--lilac); border-radius: 12px; padding: 6px 10px; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 14px; }
+.ops-row .v { font-family: var(--f-display); font-size: 16px; font-variant-numeric: tabular-nums; }
+.ops-row small { grid-column: 1 / -1; color: var(--ink-soft); font-size: 12px; }
+
 .petal {
   position: fixed; top: -20px; z-index: 30; width: 12px; height: 10px; pointer-events: none;
   border-radius: 70% 0 70% 0;
@@ -349,9 +375,9 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
 
 <div class="app">
   <header class="top">
-    <button class="stage-btn" id="stageBtn" type="button" data-str-aria="STR_UI_SELECT_STAGE">
-      <span id="stageLabel">STAGE 1</span><small id="sizeLabel">4×4</small><span class="chev" aria-hidden="true">▼</span>
-    </button>
+    <div class="stage-btn" id="stageBtn">
+      <span id="stageLabel">STAGE 1</span><small id="sizeLabel">4×4</small>
+    </div>
     <div class="progress" aria-live="polite">
       <div class="fill" id="progFill"></div>
       <div class="label"><img src="img/flower.png" alt=""><span id="progText">1 / 6</span></div>
@@ -465,15 +491,20 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   </div>
 </div>
 
-<div class="overlay sheet" id="selectOverlay" hidden>
-  <div class="card" role="dialog" aria-modal="true" aria-labelledby="selectTitle">
+<!-- collected metrics (open with #metrics): computed from this device's Player / PlayLog rows -->
+<div class="overlay sheet" id="opsOverlay" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="opsTitle">
     <div class="grab" aria-hidden="true"></div>
-    <h2 id="selectTitle" data-str="STR_UI_SELECT_TITLE"></h2>
-    <div class="stage-grid" id="stageGrid"></div>
-    <p class="legend" data-str="STR_UI_SELECT_LEGEND"></p>
-    <div class="actions"><button class="btn" id="closeSelect" type="button" data-str="STR_UI_CLOSE"></button></div>
+    <h2 id="opsTitle" data-str="STR_OPS_TITLE"></h2>
+    <p class="legend" id="opsNote"></p>
+    <div class="ops-list" id="opsList"></div>
+    <div class="actions">
+      <button class="btn pink" id="opsExport" type="button" data-str="STR_OPS_EXPORT"></button>
+      <button class="btn" id="closeOps" type="button" data-str="STR_UI_CLOSE"></button>
+    </div>
   </div>
 </div>
+
 
 <script>
 (() => {
@@ -486,7 +517,7 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     // UI
     STR_UI_TITLE:             { ko: "기사의 여행", en: "Knight's Journey", ja: "騎士の旅" },
     STR_UI_STAGE:             { ko: "STAGE {stage}", en: "STAGE {stage}", ja: "STAGE {stage}" },
-    STR_UI_SELECT_STAGE:      { ko: "스테이지 고르기", en: "Choose stage", ja: "ステージをえらぶ" },
+    STR_UI_RESTART_ALL:       { ko: "처음부터 다시 여행", en: "Start the journey again", ja: "最初からまた旅する" },
     STR_UI_UNDO:              { ko: "되돌리기", en: "Undo", ja: "戻す" },
     STR_UI_HINT:              { ko: "힌트", en: "Hint", ja: "ヒント" },
     STR_UI_RESTART:           { ko: "다시하기", en: "Restart", ja: "やり直し" },
@@ -497,8 +528,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     STR_UI_STAT_UNDO:         { ko: "되돌리기 {count}회", en: "Undo ×{count}", ja: "戻す {count}回" },
     STR_UI_STAT_HINT:         { ko: "힌트 {count}회", en: "Hint ×{count}", ja: "ヒント {count}回" },
     STR_UI_NEXT:              { ko: "다음 스테이지", en: "Next stage", ja: "次のステージ" },
-    STR_UI_SELECT_TITLE:      { ko: "어디로 여행할까?", en: "Where to next?", ja: "どこへ旅する？" },
-    STR_UI_SELECT_LEGEND:     { ko: "관문 = 갈림길 많음 · 먼 길 = 칸 많음", en: "Gate = many branches · Long road = many tiles", ja: "関門 = 分かれ道が多い · 遠い道 = マスが多い" },
     STR_UI_CLOSE:             { ko: "닫기", en: "Close", ja: "閉じる" },
     STR_UI_DAILY:             { ko: "일일 퍼즐", en: "Daily puzzles", ja: "デイリーパズル" },
     STR_UI_DAILY_TITLE:       { ko: "오늘의 퍼즐", en: "Today's puzzles", ja: "今日のパズル" },
@@ -528,6 +557,25 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     STR_UI_RANK_SAVE_FAIL:    { ko: "랭킹 등록 권한이 없어 기록이 이 기기에만 저장됐어요.", en: "No permission to post to the ranking. Saved on this device only.", ja: "ランキングへの登録権限がないため、この端末にのみ保存しました。" },
     STR_UI_RANK_ME:           { ko: "나", en: "You", ja: "自分" },
     STR_UI_RANK_SOMEONE:      { ko: "플레이어", en: "Player", ja: "プレイヤー" },
+    STR_OPS_TITLE:            { ko: "수집 지표", en: "Collected metrics", ja: "収集指標" },
+    STR_OPS_NOTE:             { ko: "이 기기 기록: 유저 {players}명, 시도 {plays}회", en: "This device: {players} players, {plays} attempts", ja: "この端末の記録：ユーザー{players}人、挑戦{plays}回" },
+    STR_OPS_EXPORT:           { ko: "로그 내보내기 (JSON)", en: "Export logs (JSON)", ja: "ログを書き出す (JSON)" },
+    STR_OPS_G_CASUAL:         { ko: "캐주얼, 초반 이탈", en: "Casual, early churn", ja: "カジュアル、序盤の離脱" },
+    STR_OPS_G_PIECE:          { ko: "새 기물과 이탈", en: "New pieces and churn", ja: "新しい駒と離脱" },
+    STR_OPS_G_HURDLE:         { ko: "허들, 쉬어가는 길 영향", en: "Hurdles and rest roads", ja: "ハードルと休憩の道" },
+    STR_OPS_EARLY:            { ko: "초반 이탈률 (1~20 스테이지)", en: "Early churn (stages 1–20)", ja: "序盤の離脱率（ステージ1〜20）" },
+    STR_OPS_SUB_EARLY:        { ko: "7일 미접속, 20 스테이지 이하 / 유저 {n}명", en: "No visit for 7 days at stage ≤ 20 / {n} players", ja: "7日未接続、ステージ20以下 / ユーザー{n}人" },
+    STR_OPS_D1D7:             { ko: "D1, D7 리텐션", en: "D1, D7 retention", ja: "D1、D7リテンション" },
+    STR_OPS_SUB_D1D7:         { ko: "대상 D1 {n1}명, D7 {n7}명", en: "Eligible: D1 {n1}, D7 {n7}", ja: "対象 D1 {n1}人、D7 {n7}人" },
+    STR_OPS_PIECE_QUIT:       { ko: "기물 첫 3 스테이지 이탈률", en: "Churn in a piece's first 3 stages", ja: "駒の最初の3ステージ離脱率" },
+    STR_OPS_SUB_PIECE_QUIT:   { ko: "킹 {k}, 룩 {r}, 비숍 {b}, 전체 {a} / 직전 3 스테이지 {prev}", en: "King {k}, rook {r}, bishop {b}, all {a} / previous 3 stages {prev}", ja: "キング{k}、ルーク{r}、ビショップ{b}、全部{a} / 直前3ステージ{prev}" },
+    STR_OPS_PIECE_STUCK:      { ko: "기물 이동 직후 막힘 (시도당)", en: "Stuck right after a piece move (per attempt)", ja: "駒の移動直後の行き止まり（挑戦あたり）" },
+    STR_OPS_SUB_PIECE_STUCK:  { ko: "구간 앞 10 스테이지 {a} → 뒤 10 스테이지 {b}", en: "First 10 stages of a band {a} → last 10 {b}", ja: "区間の前10ステージ{a} → 後10ステージ{b}" },
+    STR_OPS_HURDLE_QUIT:      { ko: "허들 이탈률", en: "Hurdle churn", ja: "ハードル離脱率" },
+    STR_OPS_SUB_VS_PREV:      { ko: "직전 일반 {b}", en: "Normal stage before {b}", ja: "直前の通常 {b}" },
+    STR_OPS_HURDLE_HINT:      { ko: "허들 힌트 사용률", en: "Hint use on hurdles", ja: "ハードルのヒント使用率" },
+    STR_OPS_REST_CLEAR:       { ko: "쉬어가는 길 클리어율", en: "Rest road clear rate", ja: "休憩の道のクリア率" },
+    STR_OPS_SUB_VS_NORMAL:    { ko: "일반 {b}", en: "Normal {b}", ja: "通常 {b}" },
     STR_UI_EXIT:              { ko: "게임 종료", en: "Quit game", ja: "ゲーム終了" },
     STR_UI_EXIT_TITLE:        { ko: "게임을 종료할까요?", en: "Quit the game?", ja: "ゲームを終了しますか？" },
     STR_UI_EXIT_DESC:         { ko: "클리어 기록과 힌트는 자동으로 저장돼요.", en: "Your cleared stages and hints are saved automatically.", ja: "クリア記録とヒントは自動で保存されます。" },
@@ -542,18 +590,15 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     STR_UI_AD_WATCH:          { ko: "광고 보고 힌트 받기", en: "Watch ad for a hint", ja: "広告を見てヒントをもらう" },
     STR_UI_AD_PLAYING:        { ko: "광고 재생 중…", en: "Playing ad…", ja: "広告を再生中…" },
     STR_UI_CLEAR_REWARD:      { ko: "힌트 +{count}", en: "Hint +{count}", ja: "ヒント +{count}" },
-    STR_UI_TAG_HURDLE:       { ko: "관문", en: "Gate", ja: "関門" },
-    STR_UI_TAG_LONG:          { ko: "먼 길", en: "Long", ja: "遠い道" },
-    STR_UI_STAGE_ARIA:        { ko: "스테이지 {stage}, {size}", en: "Stage {stage}, {size}", ja: "ステージ{stage}、{size}" },
-    STR_UI_ARIA_CLEARED:      { ko: "클리어", en: "cleared", ja: "クリア済み" },
-    STR_UI_ARIA_SEP:          { ko: ", ", en: ", ", ja: "、" },
     // dialogue (knight speech bubble)
     STR_DLG_STAGE_START_FIRST:  { ko: "빛나는 칸을 눌러 L자로 폴짝! 풀밭을 전부 밟고 깃발 성에서 끝내 줘.", en: "Tap a glowing tile to hop in an L! Step on every patch of grass and finish at the flag castle.", ja: "光るマスをタップしてL字にジャンプ！草地を全部踏んで旗のお城でゴールしてね。" },
     STR_DLG_STAGE_START:        { ko: "풀밭 {count}칸을 전부 밟고 깃발 성에 도착하자!", en: "Step on all {count} tiles and reach the flag castle!", ja: "{count}マス全部踏んで旗のお城へ行こう！" },
-    STR_DLG_STAGE_START_HURDLE: { ko: "관문 스테이지! 갈림길이 많아. {count}칸을 신중하게 밟자!", en: "Gate stage! Lots of branches. Take all {count} tiles carefully!", ja: "関門ステージ！分かれ道が多いよ。{count}マスを慎重に進もう！" },
-    STR_DLG_STAGE_START_LONG:   { ko: "먼 여행길이야! 길은 좁지만 {count}칸이나 돼.", en: "A long road! The path is narrow, but it's {count} tiles long.", ja: "遠い旅路だよ！道はせまいけど{count}マスもあるよ。" },
+    STR_DLG_STAGE_START_HURDLE: { ko: "허들 스테이지! 갈림길이 많아. {count}칸을 신중하게 밟자!", en: "Hurdle stage! Lots of branches. Take all {count} tiles carefully!", ja: "ハードルステージ！分かれ道が多いよ。{count}マスを慎重に進もう！" },
+    STR_DLG_STAGE_START_LONG:   { ko: "쉬어가는 길이야! 갈림길이 적으니 {count}칸을 천천히 걸어 보자.", en: "A resting road! Few branches, so stroll through all {count} tiles.", ja: "ひと休みの道だよ！分かれ道が少ないから{count}マスをのんびり歩こう。" },
     STR_DLG_MOVE:               { ko: "좋아! 남은 풀밭 {count}칸.", en: "Nice! {count} tiles left.", ja: "いいね！残り{count}マス。" },
     STR_DLG_MOVE_NEAR_END:      { ko: "거의 다 왔어! {count}칸만 더!", en: "Almost there! Just {count} more!", ja: "あと少し！あと{count}マス！" },
+    STR_DLG_WRONG_TAP:          { ko: "거긴 아까 막혔던 길이야! 다른 칸으로 가 보자.", en: "That way got stuck before! Let's try another tile.", ja: "そこはさっき行き止まりだった道だよ！ほかのマスへ行こう。" },
+    STR_DLG_ALL_WRONG:          { ko: "여기서 갈 수 있는 길이 모두 막혔던 길이야. 되돌리기를 눌러 줘!", en: "Every way from here got stuck before. Tap Undo!", ja: "ここから行ける道は全部行き止まりだったよ。戻すを押してね！" },
     STR_DLG_UNDO:               { ko: "한 칸 뒤로! 남은 풀밭 {count}칸.", en: "One step back! {count} tiles left.", ja: "一歩もどったよ！残り{count}マス。" },
     STR_DLG_TAP_ROCK:           { ko: "바위는 밟을 수 없어!", en: "You can't step on rocks!", ja: "岩は踏めないよ！" },
     STR_DLG_TAP_FLOWER:         { ko: "거긴 벌써 꽃이 피었어.", en: "Flowers already bloom there.", ja: "そこはもう花が咲いてるよ。" },
@@ -566,6 +611,13 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     STR_DLG_DAILY_START:        { ko: "오늘의 퍼즐! {count}칸이야. 여기선 오늘 받은 힌트만 쓸 수 있어.", en: "Today's puzzle! {count} tiles. Only today's hints work here.", ja: "今日のパズル！{count}マスだよ。ここでは今日のヒントだけ使えるよ。" },
     STR_DLG_DAILY_HINT_EMPTY:   { ko: "오늘의 힌트를 다 썼어. 내일 다시 5개가 생겨!", en: "Today's hints are used up. You'll get 5 again tomorrow!", ja: "今日のヒントは使い切ったよ。明日また5つもらえるよ！" },
     STR_DLG_HINT_AD_REWARD:    { ko: "힌트 1개를 받았어! 힌트 버튼을 눌러 봐.", en: "Got 1 hint! Tap the Hint button.", ja: "ヒントを1つもらったよ！ヒントボタンを押してみて。" },
+    STR_DLG_INTRO_K:            { ko: "왕관 칸이 나타났어! 왕관을 밟으면 다음 한 번은 왕처럼 바로 옆 칸으로 한 걸음 갈 수 있어.", en: "A crown tile! Step on it and your next move goes one square in any direction, like a king.", ja: "王冠マスが出たよ！踏むと次の1回だけ、王様みたいにとなりのマスへ1歩進めるよ。" },
+    STR_DLG_INTRO_R:            { ko: "룩 칸이 나타났어! 룩을 밟으면 다음 한 번은 가로세로 직선으로 원하는 칸까지 달릴 수 있어. 바위는 못 넘어!", en: "A rook tile! Step on it and your next move runs straight across or up/down to any tile. Rocks block the way!", ja: "ルークマスが出たよ！踏むと次の1回だけ、たて・よこにまっすぐ好きなマスまで走れるよ。岩はこえられない！" },
+    STR_DLG_INTRO_B:            { ko: "비숍 칸이 나타났어! 비숍을 밟으면 다음 한 번은 대각선으로 원하는 칸까지 달릴 수 있어. 바위는 못 넘어!", en: "A bishop tile! Step on it and your next move runs diagonally to any tile. Rocks block the way!", ja: "ビショップマスが出たよ！踏むと次の1回だけ、ななめに好きなマスまで走れるよ。岩はこえられない！" },
+    STR_DLG_INTRO_ALL:          { ko: "마지막 들판! 왕관, 룩, 비숍이 모두 나와. 밟은 칸의 말처럼 움직이는 걸 잊지 마!", en: "The last field! Crowns, rooks and bishops all appear. Move like the piece you stand on!", ja: "最後の野原！王冠、ルーク、ビショップが全部出るよ。踏んだマスの駒みたいに動くのを忘れないで！" },
+    STR_DLG_GIM_K:              { ko: "왕관! 이번엔 바로 옆 칸으로 한 걸음.", en: "Crown! This time, one step to a neighbouring tile.", ja: "王冠！今回はとなりのマスへ1歩。" },
+    STR_DLG_GIM_R:              { ko: "룩! 이번엔 가로세로 직선으로 원하는 칸까지.", en: "Rook! This time, straight across or up/down as far as you like.", ja: "ルーク！今回はたて・よこにまっすぐ好きなマスまで。" },
+    STR_DLG_GIM_B:              { ko: "비숍! 이번엔 대각선으로 원하는 칸까지.", en: "Bishop! This time, diagonally as far as you like.", ja: "ビショップ！今回はななめに好きなマスまで。" },
     STR_DLG_CLEAR:              { ko: "성에 도착! 들판이 온통 꽃밭이야!", en: "Made it to the castle! The whole field is in bloom!", ja: "お城に到着！野原が一面お花畑だ！" },
   };
   function t(key, params = {}) {
@@ -590,24 +642,43 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   const flowerArt = n => `<div class="flower"><img src="${IMG("flower")}" alt="" draggable="false"><span>${n}</span></div>`;
   const GOAL_ART = `<img class="goal" src="${IMG("castle")}" alt="" draggable="false">`;
   const ROCK_ART = `<img class="rock" src="${IMG("rock")}" alt="" draggable="false">`;
+  const GLYPH = { K: "♔︎", R: "♖︎", B: "♗︎" };
+  const pieceArt = (k, mini) => `<div class="piece ${k}${mini ? " mini" : ""}" aria-hidden="true">${GLYPH[k]}</div>`;
+  // what an unstepped cell shows: castle, chess gimmick, or plain grass
+  const idleArt = c => c === L.goal ? GOAL_ART : L.gim && L.gim[c] ? pieceArt(L.gim[c]) : "";
 
   // ---------- levels ----------
-  // StageTable: [board size, cells to step on (LEN), map seed, type]
-  // Board grows every 10 stages (4x4 → 8x8). Type: N normal, H hurdle (x5/x0: most move sequences in its band),
-  // L long (x3/x8: longer LEN, fewer move sequences than its neighbours). Seeds picked by the level design tool.
+  // StageTable: [board size, cells to step on (LEN), map seed, type, gimmick pieces, gimmick count]
+  // Boards: 1–10 4×4, 11–40 5×5, 41–80 6×6, 81–100 7×7.
+  // Pieces: 1–20 knight only, 21–40 + king, 41–60 + rook, 61–80 + bishop, 81–100 all pieces.
+  // Type: N normal, H hurdle (x0, x5), L rest road (x3, x8). Seeds picked by tools/leveldesign-100.js
+  // (single answer route, move-sequence tree ≤ 10,000 for every stage; normal stages climb on one log-linear line).
   const STAGES = [
-    [4, 6, 109407, 'N'], [4, 8, 1584758, 'N'], [4, 10, 232940264, 'L'], [4, 9, 9141697, 'N'], [4, 11, 250237000, 'H'],
-    [4, 10, 14499327, 'N'], [4, 11, 6024810, 'N'], [4, 12, 192136775, 'L'], [4, 11, 29499944, 'N'], [4, 13, 277716819, 'H'],
-    [5, 11, 6056486, 'N'], [5, 13, 10150062, 'N'], [5, 14, 16442334, 'L'], [5, 13, 11841564, 'N'], [5, 16, 9023639, 'H'],
-    [5, 14, 7564126, 'N'], [5, 15, 6525368, 'N'], [5, 17, 5906139, 'L'], [5, 16, 4656697, 'N'], [5, 17, 22888075, 'H'],
-    [6, 17, 6244083, 'N'], [6, 19, 15259922, 'N'], [6, 21, 43545897, 'L'], [6, 19, 22292603, 'N'], [6, 21, 30680068, 'H'],
-    [6, 20, 5342956, 'N'], [6, 21, 33104673, 'N'], [6, 24, 114279406, 'L'], [6, 22, 10394931, 'N'], [6, 23, 32815469, 'H'],
-    [7, 25, 14497039, 'N'], [7, 26, 10944785, 'N'], [7, 29, 76829084, 'L'], [7, 27, 14417293, 'N'], [7, 30, 74960413, 'H'],
-    [7, 29, 76329196, 'N'], [7, 30, 70368175, 'N'], [7, 32, 258156417, 'L'], [7, 30, 29434974, 'N'], [7, 31, 122757045, 'H'],
-    [8, 33, 39506635, 'N'], [8, 34, 20978134, 'N'], [8, 36, 37848648, 'L'], [8, 34, 990733, 'N'], [8, 37, 29486779, 'H'],
-    [8, 34, 13888238, 'N'], [8, 35, 13896770, 'N'], [8, 40, 190166661, 'L'], [8, 38, 16846859, 'N'], [8, 39, 163790178, 'H'],
+    [4, 6, 640971, 'N', '', 0], [4, 7, 544774, 'N', '', 0], [4, 6, 656809, 'L', '', 0], [4, 8, 1817973, 'N', '', 0], [4, 11, 31361309, 'H', '', 0],
+    [4, 8, 4242578, 'N', '', 0], [4, 7, 60724, 'N', '', 0], [4, 8, 3839500, 'L', '', 0], [4, 8, 705549, 'N', '', 0], [4, 9, 2808661, 'H', '', 0],
+    [5, 10, 3759754, 'N', '', 0], [5, 9, 1148835, 'N', '', 0], [5, 10, 214806, 'L', '', 0], [5, 9, 2211963, 'N', '', 0], [5, 9, 1382050, 'H', '', 0],
+    [5, 9, 12491243, 'N', '', 0], [5, 9, 1083701, 'N', '', 0], [5, 10, 254401, 'L', '', 0], [5, 9, 5183970, 'N', '', 0], [5, 11, 1632329, 'H', '', 0],
+    [5, 9, 6351827, 'N', 'K', 1], [5, 9, 1961128, 'N', 'K', 1], [5, 10, 4168969, 'L', 'K', 1], [5, 9, 615489, 'N', 'K', 1], [5, 12, 4081304, 'H', 'K', 1],
+    [5, 9, 5344132, 'N', 'K', 1], [5, 10, 8285076, 'N', 'K', 1], [5, 11, 7141589, 'L', 'K', 2], [5, 10, 1912445, 'N', 'K', 2], [5, 12, 10823555, 'H', 'K', 2],
+    [5, 11, 672148, 'N', 'K', 2], [5, 9, 5810562, 'N', 'K', 2], [5, 10, 1315747, 'L', 'K', 2], [5, 10, 7188490, 'N', 'K', 2], [5, 12, 6778719, 'H', 'K', 3],
+    [5, 11, 6576567, 'N', 'K', 3], [5, 11, 9935814, 'N', 'K', 3], [5, 12, 9734888, 'L', 'K', 3], [5, 11, 8066530, 'N', 'K', 3], [5, 13, 6714198, 'H', 'K', 3],
+    [6, 12, 1275596, 'N', 'R', 1], [6, 13, 1284128, 'N', 'R', 1], [6, 14, 3806156, 'L', 'R', 1], [6, 17, 2349708, 'N', 'RK', 1], [6, 15, 2775317, 'H', 'RK', 1],
+    [6, 16, 5716261, 'N', 'RK', 1], [6, 14, 8341179, 'N', 'RK', 1], [6, 15, 5417299, 'L', 'RK', 2], [6, 15, 1654974, 'N', 'RK', 2], [6, 17, 7424214, 'H', 'RK', 2],
+    [6, 15, 5859972, 'N', 'RK', 2], [6, 19, 424435, 'N', 'RK', 2], [6, 16, 744702, 'L', 'RK', 2], [6, 15, 5569542, 'N', 'RK', 2], [6, 18, 9035357, 'H', 'RK', 3],
+    [6, 16, 2234665, 'N', 'RK', 3], [6, 15, 671036, 'N', 'RK', 3], [6, 16, 10943010, 'L', 'RK', 3], [6, 16, 8018517, 'N', 'RK', 3], [6, 18, 3105399, 'H', 'RK', 3],
+    [6, 17, 6987678, 'N', 'B', 1], [6, 16, 3120011, 'N', 'B', 1], [6, 19, 10879715, 'L', 'B', 1], [6, 18, 3241804, 'N', 'BRK', 1], [6, 20, 4612426, 'H', 'BRK', 1],
+    [6, 18, 11740691, 'N', 'BRK', 1], [6, 19, 11644494, 'N', 'BRK', 1], [6, 21, 5788815, 'L', 'BRK', 2], [6, 18, 9041494, 'N', 'BRK', 2], [6, 19, 2661557, 'H', 'BRK', 2],
+    [6, 17, 1620960, 'N', 'BRK', 2], [6, 18, 8960522, 'N', 'BRK', 2], [6, 19, 2266398, 'L', 'BRK', 2], [6, 18, 6148677, 'N', 'BRK', 2], [6, 20, 3644326, 'H', 'BRK', 3],
+    [6, 21, 4909606, 'N', 'BRK', 3], [6, 18, 831255, 'N', 'BRK', 3], [6, 19, 12150519, 'L', 'BRK', 3], [6, 17, 4826182, 'N', 'BRK', 3], [6, 20, 5045398, 'H', 'BRK', 3],
+    [7, 25, 7255691, 'N', 'KRB', 2], [7, 25, 15537201, 'N', 'KRB', 2], [7, 29, 114202290, 'L', 'KRB', 2], [7, 27, 24246772, 'N', 'KRB', 2], [7, 27, 13572333, 'H', 'KRB', 2],
+    [7, 29, 119671955, 'N', 'KRB', 2], [7, 27, 10132114, 'N', 'KRB', 2], [7, 30, 59573960, 'L', 'KRB', 3], [7, 28, 6378321, 'N', 'KRB', 3], [7, 26, 21047074, 'H', 'KRB', 3],
+    [7, 23, 7228926, 'N', 'KRB', 3], [7, 24, 10588786, 'N', 'KRB', 3], [7, 25, 11854066, 'L', 'KRB', 3], [7, 24, 18249841, 'N', 'KRB', 3], [7, 24, 2443681, 'H', 'KRB', 4],
+    [7, 27, 14916190, 'N', 'KRB', 4], [7, 24, 14084438, 'N', 'KRB', 4], [7, 29, 61747117, 'L', 'KRB', 4], [7, 28, 79244166, 'N', 'KRB', 4], [7, 28, 84802722, 'H', 'KRB', 4],
   ];
+  // ==LEVELGEN==
   const MOVES = [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+  const KING = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+  const LINES = { R: [[1,0],[-1,0],[0,1],[0,-1]], B: [[1,1],[1,-1],[-1,1],[-1,-1]] };
 
   function rng(seed) {
     return () => {
@@ -618,55 +689,169 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     };
   }
 
-  // Draw a random knight path of the target length (Warnsdorff + noise); every cell off the path becomes a rock.
-  // spec = [board size, LEN, seed, type] (a StageTable row, or a daily puzzle's spec)
+  // Cells reachable in one move from c for a piece ("N" knight, "K" king, "R" rook, "B" bishop).
+  // Rook and bishop slide any distance and may stop on any open cell; only rocks (and the edge) block the line,
+  // stepped cells can be passed over. `blocked(q)` says whether q is a rock.
+  function pieceMoves(n, c, kind, blocked) {
+    const x = c % n, y = (c / n) | 0, out = [];
+    if (kind === "R" || kind === "B") {
+      for (const [dx, dy] of LINES[kind]) {
+        let nx = x + dx, ny = y + dy;
+        while (nx >= 0 && ny >= 0 && nx < n && ny < n && !blocked(ny * n + nx)) { out.push(ny * n + nx); nx += dx; ny += dy; }
+      }
+      return out;
+    }
+    for (const [dx, dy] of kind === "K" ? KING : MOVES) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && ny >= 0 && nx < n && ny < n && !blocked(ny * n + nx)) out.push(ny * n + nx);
+    }
+    return out;
+  }
+
+  // Draw a random route of the target length (Warnsdorff + noise); every cell off the route becomes a rock.
+  // Gimmick cells are placed on the route at roughly even steps: standing on one, the next move uses that piece.
+  // A rook / bishop step only crosses cells already on the route, so the line stays open once rocks are placed.
+  // spec = [board size, LEN, seed, type, pieces, count] (a StageTable row, or a daily puzzle's spec)
   function genLevel(spec) {
-    const [n, len, seed, type] = spec;
+    const [n, len, seed, type, kinds = "", gcount = 0] = spec;
     const full = len === n * n;
     for (let attempt = 0; attempt < 2000; attempt++) {
       const r = rng(seed + attempt * 7);
-      const vis = new Array(n * n).fill(false);
-      let x = Math.floor(r() * n), y = Math.floor(r() * n);
-      const path = [y * n + x];
-      vis[y * n + x] = true;
+      const vis = new Array(n * n).fill(false), gim = new Array(n * n).fill("");
+      const slots = new Set();
+      for (let g = 0; g < gcount; g++) {
+        let k = 1 + Math.floor((g + 0.25 + r() * 0.5) * (len - 3) / gcount);
+        while (slots.has(k)) k++;
+        slots.add(k);
+      }
+      let c = Math.floor(r() * n * n), placed = 0;
+      const path = [c];
+      vis[c] = true;
       while (path.length < len) {
+        const step = path.length - 1;
+        let kind = "N", cands = null;
+        if (slots.has(step) && placed < gcount && step > 0) {
+          const k = kinds[placed % kinds.length];          // rotate: the chapter's own piece first, then the mix
+          const opts = pieceMoves(n, c, k, () => false).filter(q => !vis[q] && lineClear(n, c, q, vis));
+          if (opts.length) { kind = k; cands = opts; gim[c] = k; placed++; }
+          else { let k = step + 1; while (slots.has(k)) k++; slots.add(k); }   // try a later step instead
+        }
+        if (!cands) cands = pieceMoves(n, c, "N", () => false).filter(q => !vis[q]);
         let best = null;
-        for (const [dx, dy] of MOVES) {
-          const nx = x + dx, ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= n || ny >= n || vis[ny * n + nx]) continue;
+        for (const q of cands) {
           let d = 0;
-          for (const [ex, ey] of MOVES) {
-            const qx = nx + ex, qy = ny + ey;
-            if (qx >= 0 && qy >= 0 && qx < n && qy < n && !vis[qy * n + qx]) d++;
-          }
+          for (const e of pieceMoves(n, q, "N", () => false)) if (!vis[e]) d++;
           const s = d + r() * (full ? 0.99 : 2.5);
-          if (!best || s < best.s) best = { nx, ny, s };
+          if (!best || s < best.s) best = { q, s };
         }
         if (!best) break;
-        x = best.nx; y = best.ny;
-        vis[y * n + x] = true;
-        path.push(y * n + x);
+        c = best.q; vis[c] = true; path.push(c);
       }
-      if (path.length === len) return { n, len, type, start: path[0], goal: path[len - 1], solution: path, rock: vis.map(v => !v) };
+      if (path.length === len && placed === gcount)
+        return { n, len, type, start: path[0], goal: path[len - 1], solution: path, rock: vis.map(v => !v), gim };
     }
     throw new Error("level generation failed: " + spec);
   }
+  // every cell strictly between a and b (same line) is already on the route
+  function lineClear(n, a, b, vis) {
+    const ax = a % n, ay = (a / n) | 0, bx = b % n, by = (b / n) | 0;
+    const dx = Math.sign(bx - ax), dy = Math.sign(by - ay);
+    for (let x = ax + dx, y = ay + dy; x !== bx || y !== by; x += dx, y += dy) if (!vis[y * n + x]) return false;
+    return true;
+  }
 
+  // nb[c] = cells reachable from c with c's own piece (out-edges); inb[q] = cells that can reach q (in-edges)
   function neighbors(L) {
     const { n } = L, nb = [];
-    for (let c = 0; c < n * n; c++) {
-      const x = c % n, y = (c / n) | 0, list = [];
-      if (!L.rock[c]) for (const [dx, dy] of MOVES) {
-        const nx = x + dx, ny = y + dy;
-        if (nx >= 0 && ny >= 0 && nx < n && ny < n && !L.rock[ny * n + nx]) list.push(ny * n + nx);
-      }
-      nb.push(list);
-    }
+    for (let c = 0; c < n * n; c++) nb.push(L.rock[c] ? [] : pieceMoves(n, c, L.gim ? L.gim[c] || "N" : "N", q => L.rock[q]));
+    L.inb = nb.map(() => []);
+    nb.forEach((list, c) => list.forEach(q => L.inb[q].push(c)));
     return nb;
   }
 
+  // Depth-first search for routes that cover every open cell and end on the goal, continuing `path`.
+  // Returns { next, count, nodes }: next = first cell of a found route (-1 none, -2 gave up at `limit` nodes).
+  // countUpTo > 0 keeps searching until that many routes are found (used to check uniqueness).
+  // Moves are one-way (a rook can reach a cell that cannot jump back), so in- and out-edges are checked separately.
+  function searchLevel(L, path, limit, countUpTo = 0) {
+    const nb = L.nb, inb = L.inb, total = L.n * L.n, G = L.goal;
+    const vis = new Uint8Array(total);
+    for (const c of path) vis[c] = 1;
+    let nodes = 0, count = 0;
+    const free = q => { let d = 0; for (const r of nb[q]) if (!vis[r]) d++; return d; };
+    const seen = new Uint8Array(total), queue = new Int16Array(total);
+    // every open cell needs a way in (from an open cell or the current one) and, except the goal, a way out
+    function hopeless(c, rem) {
+      if (rem <= 1) return false;
+      for (let q = 0; q < total; q++) {
+        if (L.rock[q] || vis[q]) continue;
+        let ins = 0, inA = -1;
+        for (const p of inb[q]) if (!vis[p] || p === c) { ins++; inA = p; }
+        if (!ins) return true;
+        if (q === G) continue;
+        let outs = 0, outA = -1;
+        for (const r of nb[q]) if (!vis[r]) { outs++; outA = r; }
+        if (!outs || (ins === 1 && outs === 1 && inA === outA)) return true;
+      }
+      // every open cell must still be reachable from here
+      seen.fill(0); seen[c] = 1;
+      let head = 0, tail = 0, reached = 0;
+      queue[tail++] = c;
+      while (head < tail) {
+        const p = queue[head++];
+        for (const r of nb[p]) if (!vis[r] && !seen[r]) { seen[r] = 1; reached++; queue[tail++] = r; }
+      }
+      return reached < rem;
+    }
+    function order(c, rem) {
+      return nb[c].filter(q => !vis[q] && (q !== G || rem === 1))
+        .map(q => [q, free(q)]).sort((a, b) => a[1] - b[1]).map(p => p[0]);
+    }
+    function dfs(c, rem) {
+      if (rem === 0) return ++count >= Math.max(1, countUpTo);
+      if (++nodes > limit) throw "timeout";
+      if (hopeless(c, rem)) return false;
+      for (const q of order(c, rem)) {
+        vis[q] = 1;
+        const stop = dfs(q, rem - 1);
+        vis[q] = 0;
+        if (stop) return true;
+      }
+      return false;
+    }
+    const c0 = path[path.length - 1], rem0 = L.len - path.length;
+    let first = -1;
+    try {
+      if (rem0 === 0 || hopeless(c0, rem0)) return { next: -1, count, nodes };
+      for (const q of order(c0, rem0)) {
+        vis[q] = 1;
+        const before = count;
+        const stop = dfs(q, rem0 - 1);
+        vis[q] = 0;
+        if (count > before && first < 0) first = q;
+        if (stop) break;
+      }
+      return { next: first, count, nodes };
+    } catch (e) { return { next: first >= 0 ? first : -2, count, nodes }; }
+  }
+
+  // "경우의 수": number of move sequences the player can make from the start (every prefix, dead ends included).
+  // Throws once `cap` is passed. Also counts complete routes.
+  function treeSize(L, cap) {
+    const nb = L.nb, vis = new Uint8Array(L.n * L.n), G = L.goal;
+    let count = 0, sols = 0;
+    vis[L.start] = 1;
+    (function dfs(c, rem) {
+      if (++count > cap) throw "cap";
+      if (rem === 0) { sols++; return; }
+      for (const q of nb[c]) { if (vis[q] || (q === G && rem !== 1)) continue; vis[q] = 1; dfs(q, rem - 1); vis[q] = 0; }
+    })(L.start, L.len - 1);
+    return { T: count, sols };
+  }
+  // ==/LEVELGEN==
+
   // ---------- state ----------
-  const KEY = "knight-tour-v6";
+  const KEY = "knight-tour-v7";   // v7: chess pieces + 100-stage rebalance (v6 progress indexes no longer match)
   const store = {
     get() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } },
     set(v) { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch {} }
@@ -676,8 +861,104 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   // Hints are one shared wallet: 5 to start, +1 for each stage cleared for the first time, +1 per rewarded ad.
   const HINT_START = 5, HINT_CLEAR_REWARD = 1, HINT_AD_REWARD = 1;
   let hints = Number.isInteger(saved.hints) && saved.hints >= 0 ? saved.hints : HINT_START;
-  let mainIndex = Number.isInteger(saved.stage) ? saved.stage : 0;   // last main stage, kept while a daily puzzle is open
-  const persist = () => store.set({ cleared: [...cleared], stage: mainIndex, hints });
+  // stages are played strictly in order: always resume at the first stage not cleared yet
+  const firstOpen = () => { let i = 0; while (i < STAGES.length - 1 && cleared.has(i)) i++; return i; };
+  let mainIndex = firstOpen();   // current main stage, kept while a daily puzzle is open
+  const persist = () => { store.set({ cleared: [...cleared], stage: mainIndex, hints }); syncPlayer(); };
+
+  // ---------- logs: Player + PlayLog (system doc table chapter, proposal 4.1) ----------
+  // Player = this device's user state. PlayLog = one row per main-stage attempt; 다시하기 closes it as restart,
+  // leaving (X, daily puzzle, closed app) as quit. An attempt still open at the next visit is closed as quit
+  // at its last action. Rows live on this device (knight-tour-log); on claude.ai each finished row and the Player
+  // are also written to the artifact store (players/<user id>, playlogs/<play_id>). Daily puzzles are not logged.
+  const LKEY = "knight-tour-log", LOG_MAX = 3000;
+  const iso = (ms = Date.now()) => new Date(ms).toISOString();
+  const newId = p => p + (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+  const LOG = (() => { try { return JSON.parse(localStorage.getItem(LKEY)) || {}; } catch { return {}; } })();
+  if (!LOG.player || !LOG.player.player_id) LOG.player = { player_id: newId("p_"), created_at: iso() };
+  if (!Array.isArray(LOG.plays)) LOG.plays = [];
+  let play = null;                                   // the open PlayLog row
+  // export / upload copy: fields starting with _ are bookkeeping only
+  const cleanRow = r => Object.fromEntries(Object.entries(r).filter(([k]) => k[0] !== "_"));
+  function saveLog() {
+    if (LOG.plays.length > LOG_MAX) LOG.plays.splice(0, LOG.plays.length - LOG_MAX);
+    try { localStorage.setItem(LKEY, JSON.stringify(LOG)); } catch {}
+  }
+  function syncPlayer() {
+    Object.assign(LOG.player, { lang: LANG, hint_count: hints, current_stage: mainIndex + 1,
+      cleared_stages: [...cleared].sort((a, b) => a - b).map(i => i + 1) });
+    saveLog();
+  }
+  function closeRow(r, result, at) {
+    r.result = result; r.ended_at = iso(at); r.play_time_ms = Math.max(0, at - Date.parse(r.started_at));
+    delete r._last;
+  }
+  function startPlay(i) {
+    endPlay("quit");
+    const stage_id = i + 1;
+    play = { play_id: newId("pl_"), player_id: LOG.player.player_id, stage_id, seed: STAGES[i][2],
+      attempt_no: LOG.plays.filter(r => r.stage_id === stage_id).length + 1,
+      started_at: iso(), ended_at: null, result: null, play_time_ms: null,
+      move_count: 0, undo_count: 0, hint_used: 0, stuck_count: 0, piece_stuck_count: 0, _last: Date.now() };
+    LOG.plays.push(play);
+    saveLog();
+  }
+  function endPlay(result) {
+    if (!play) return;
+    closeRow(play, result, Date.now());
+    play = null;
+    saveLog();
+    flushLogs();
+  }
+  const logPlay = field => { if (!play) return; play[field]++; play._last = Date.now(); saveLog(); };
+  // send finished rows the shared store has not received yet (claude.ai only)
+  async function flushLogs() {
+    if (!RANK.db || !RANK.uid) return;
+    try {
+      await RANK.db.doc("players/" + RANK.uid).set(cleanRow(LOG.player));
+      for (const r of LOG.plays) if (r.result && !r._sent) {
+        await RANK.db.doc("playlogs/" + r.play_id).set({ ...cleanRow(r), uid: RANK.uid });
+        r._sent = 1;
+      }
+      saveLog();
+    } catch {}
+  }
+
+  // ==METRICS==
+  // Proposal 4.1: churn-first metrics from Player and PlayLog rows (tools/metrics.js runs the same code on exported logs).
+  // stageType(stage_id) → "N" normal | "H" hurdle | "L" rest road. Rates count finished attempts only; null = no data.
+  function computeMetrics(players, plays, stageType, now = Date.now()) {
+    const DAY = 864e5, ts = s => Date.parse(s);
+    const done = plays.filter(r => r.result);
+    const rate = (rows, f) => rows.length ? { v: rows.filter(f).length / rows.length, n: rows.length } : null;
+    const avg = (rows, f) => rows.length ? { v: rows.reduce((s, r) => s + f(r), 0) / rows.length, n: rows.length } : null;
+    const span = (a, b) => done.filter(r => r.stage_id >= a && r.stage_id <= b);
+    const quit = r => r.result === "quit";
+    // churned = no visit for 7 days; D-n = came back at least n days after the first visit
+    const early = rate(players, p => now - ts(p.last_login_at) >= 7 * DAY && p.current_stage <= 20);
+    const dn = d => rate(players.filter(p => now - ts(p.created_at) >= d * DAY), p => ts(p.last_login_at) - ts(p.created_at) >= d * DAY);
+    // pieces appear at 21 king, 41 rook, 61 bishop, 81 all; each band runs 20 stages
+    const FIRST = [21, 41, 61, 81], BANDS = FIRST.map(a => [a, a + 19]);
+    const first3 = FIRST.map(a => span(a, a + 2));
+    const stuck = r => r.piece_stuck_count || 0;
+    const type = k => done.filter(r => stageType(r.stage_id) === k);
+    return {
+      early, d1: dn(1), d7: dn(7),
+      pieceQuit: rate(first3.flat(), quit),
+      pieceQuitBands: first3.map(rows => rate(rows, quit)),
+      pieceQuitPrev: rate(FIRST.flatMap(a => span(a - 3, a - 1)), quit),
+      pieceStuck: avg(span(21, 100), stuck),
+      pieceStuckFront: avg(BANDS.flatMap(([a]) => span(a, a + 9)), stuck),
+      pieceStuckBack: avg(BANDS.flatMap(([, b]) => span(b - 9, b)), stuck),
+      hurdleQuit: rate(type("H"), quit),
+      hurdlePrevQuit: rate(done.filter(r => stageType(r.stage_id + 1) === "H"), quit),
+      hurdleHint: rate(type("H"), r => r.hint_used > 0),
+      normalHint: rate(type("N"), r => r.hint_used > 0),
+      restClear: rate(type("L"), r => r.result === "clear"),
+      normalClear: rate(type("N"), r => r.result === "clear"),
+    };
+  }
+  // ==/METRICS==
 
   // Daily puzzles: three per local date, generated from the date (same puzzles for everyone that day),
   // each with exactly one answer route. Daily hints are a separate pool of 5 that resets every day.
@@ -712,13 +993,34 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   // the goal castle can only be entered as the very last step
   const options = () => L.nb[cur()].filter(q => !S.vis[q] && (q !== L.goal || L.len - S.path.length === 1));
 
+  // ---------- wrong-path memo ----------
+  // Like a sudoku pencil mark: a move the player has seen end in a dead end is painted red.
+  // A board state is "where the knight stands + which cells are already stepped on" (the order does not matter),
+  // so S.wrong maps that state to its proven dead moves. Marks survive undo: coming back to the same state shows them
+  // again. Only 다시하기 (restart) or a new stage clears them.
+  const stateKey = k => S.path[k - 1] + "|" + S.path.slice(0, k).sort((a, b) => a - b).join(",");
+  const wrongHere = () => S.wrong[stateKey(S.path.length)] || new Set();
+  const isWrong = c => wrongHere().has(c);
+  function markWrong(k, c) {
+    (S.wrong[stateKey(k)] ||= new Set()).add(c);
+    // spread backwards: if every move from a state is red, the move into that state is red too
+    while (k > 1 && S.path.length >= k) {
+      const at = S.path[k - 1], prefix = new Set(S.path.slice(0, k)), dead = S.wrong[stateKey(k)];
+      const opts = L.nb[at].filter(q => !prefix.has(q) && (q !== L.goal || L.len - k === 1));
+      if (!opts.length || !opts.every(q => dead.has(q))) break;
+      (S.wrong[stateKey(k - 1)] ||= new Set()).add(at);
+      k--;
+    }
+  }
+
   function loadStage(i, replay) {
     mode = "main"; mainIndex = i;
+    startPlay(i);
     document.querySelector(".app").classList.remove("daily");
     L = genLevel(STAGES[i]);
     L.index = i;
     L.nb = neighbors(L);
-    S = { path: [L.start], vis: new Uint8Array(L.n * L.n), hintsUsed: 0, undos: 0, busy: false, done: false, hintCell: -1, reward: 0 };
+    S = { path: [L.start], vis: new Uint8Array(L.n * L.n), hintsUsed: 0, undos: 0, busy: false, done: false, hintCell: -1, reward: 0, wrong: {} };
     S.vis[L.start] = 1;
     if (Array.isArray(replay) && replay[0] === L.start) {
       for (const c of replay.slice(1)) {
@@ -732,7 +1034,8 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     setMood("normal");
     $("stageLabel").textContent = t("STR_UI_STAGE", { stage: i + 1 });
     $("sizeLabel").textContent = `${L.n}×${L.n}`;
-    say(i === 0 ? "STR_DLG_STAGE_START_FIRST" :
+    const INTRO = { 20: "STR_DLG_INTRO_K", 40: "STR_DLG_INTRO_R", 60: "STR_DLG_INTRO_B", 80: "STR_DLG_INTRO_ALL" };
+    say(i === 0 ? "STR_DLG_STAGE_START_FIRST" : INTRO[i] ? INTRO[i] :
         L.type === "H" ? "STR_DLG_STAGE_START_HURDLE" :
         L.type === "L" ? "STR_DLG_STAGE_START_LONG" : "STR_DLG_STAGE_START", { count: L.len });
     persist();
@@ -762,11 +1065,12 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   function loadDaily(id) {
     if (daily.date !== today()) daily = loadDailyState();
     const def = DAILY.find(d => d.id === id);
+    endPlay("quit");
     mode = "daily";
     document.querySelector(".app").classList.add("daily");
     L = dailyLevel(daily.date, def);
     L.daily = def;
-    S = { path: [L.start], vis: new Uint8Array(L.n * L.n), hintsUsed: run(id).hints, undos: 0, busy: false, done: false, hintCell: -1, reward: 0 };
+    S = { path: [L.start], vis: new Uint8Array(L.n * L.n), hintsUsed: run(id).hints, undos: 0, busy: false, done: false, hintCell: -1, reward: 0, wrong: {} };
     S.vis[L.start] = 1;
     buildBoard();
     layout();
@@ -809,7 +1113,7 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
       ct.className = "ct";
       ct.style.setProperty("--x", c % n); ct.style.setProperty("--y", (c / n) | 0);
       if (L.rock[c]) ct.innerHTML = ROCK_ART;
-      else if (c === L.goal) ct.innerHTML = GOAL_ART;
+      else ct.innerHTML = idleArt(c);
       cts.push(ct);
       frag.appendChild(ct);
     }
@@ -844,11 +1148,12 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     const opts = S.done ? [] : options();
     S.path.forEach((c, k) => {
       const ct = cts[c];
-      if (ct.dataset.v !== String(k + 1)) { ct.dataset.v = k + 1; ct.innerHTML = flowerArt(k + 1); }
+      if (ct.dataset.v !== String(k + 1)) { ct.dataset.v = k + 1; ct.innerHTML = flowerArt(k + 1) + (L.gim && L.gim[c] ? pieceArt(L.gim[c], true) : ""); }
     });
     cts.forEach((ct, c) => {
-      if (!S.vis[c] && ct.dataset.v) { delete ct.dataset.v; ct.innerHTML = c === L.goal ? GOAL_ART : ""; }
-      ct.classList.toggle("mark", !S.busy && opts.includes(c));
+      if (!S.vis[c] && ct.dataset.v) { delete ct.dataset.v; ct.innerHTML = idleArt(c); }
+      ct.classList.toggle("mark", !S.busy && opts.includes(c) && !isWrong(c));
+      ct.classList.toggle("wrong", !S.busy && opts.includes(c) && isWrong(c));
       ct.classList.toggle("hint", !S.busy && c === S.hintCell);
     });
     trail.firstChild.setAttribute("points", S.path.map(c => `${c % L.n + .5},${((c / L.n) | 0) + .5}`).join(" "));
@@ -910,18 +1215,25 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   function tap(c) {
     if (S.busy || S.done) return;
     if (c === cur()) return;
+    if (options().includes(c) && isWrong(c)) {
+      const ct = cts[c];
+      ct.classList.remove("shake"); void ct.offsetWidth; ct.classList.add("shake");
+      buzz(15); say("STR_DLG_WRONG_TAP"); return;
+    }
     if (options().includes(c)) return move(c);
     const ct = cts[c];
     ct.classList.remove("shake"); void ct.offsetWidth; ct.classList.add("shake");
     buzz(15);
     say(L.rock[c] ? "STR_DLG_TAP_ROCK" : S.vis[c] ? "STR_DLG_TAP_FLOWER" :
-        c === L.goal ? "STR_DLG_TAP_CASTLE_EARLY" : "STR_DLG_TAP_INVALID");
+        c === L.goal ? "STR_DLG_TAP_CASTLE_EARLY" :
+        L.gim && L.gim[cur()] ? "STR_DLG_GIM_" + L.gim[cur()] : "STR_DLG_TAP_INVALID");
   }
 
   function move(c) {
     const from = cur();
     startClock();
     S.path.push(c); S.vis[c] = 1; S.hintCell = -1; S.busy = true;
+    logPlay("move_count");
     setMood("jump");
     $("undoBtn").classList.remove("nudge");
     render();
@@ -948,95 +1260,51 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
       S.done = true; setMood("happy"); render(); buzz([30, 50, 30, 50, 60]);
       say("STR_DLG_CLEAR");
       cleared.add(L.index); persist();
+      endPlay("clear");
       setTimeout(showClear, reduced ? 0 : 550);
       return;
     }
-    if (!options().length) {
+    if (!options().length || options().every(isWrong)) {
+      if (fromPlay) {
+        logPlay("stuck_count");
+        if (L.gim && L.gim[S.path[S.path.length - 2]]) logPlay("piece_stuck_count");   // the last move used a piece
+      }
       setMood("sad"); buzz([20, 40, 20]);
-      say("STR_DLG_STUCK", { count: left });
+      say(options().length ? "STR_DLG_ALL_WRONG" : "STR_DLG_STUCK", { count: left });
       $("undoBtn").classList.add("nudge");
       return;
     }
     setMood("normal");
-    if (fromPlay) say(left <= 3 ? "STR_DLG_MOVE_NEAR_END" : "STR_DLG_MOVE", { count: left });
+    const piece = L.gim && L.gim[cur()];
+    if (piece) say("STR_DLG_GIM_" + piece);      // the next move uses this cell's piece
+    else if (fromPlay) say(left <= 3 ? "STR_DLG_MOVE_NEAR_END" : "STR_DLG_MOVE", { count: left });
   }
 
   function undo() {
     if (S.busy || S.done || S.path.length <= 1) return;
+    const deadEnd = !options().length || options().every(isWrong);   // checked before stepping back
     const from = S.path.pop();
     S.vis[from] = 0; S.undos++; S.hintCell = -1; S.busy = true;
+    logPlay("undo_count");
+    if (deadEnd) markWrong(S.path.length, from);
     $("undoBtn").classList.remove("nudge");
     setMood("jump");
     render();
-    hop(from, cur(), () => { S.busy = false; setMood("normal"); render(); say("STR_DLG_UNDO", { count: L.len - S.path.length }); });
+    hop(from, cur(), () => {
+      S.busy = false; render();
+      if (options().length && options().every(isWrong)) {      // every way on from here is already red
+        setMood("sad"); say("STR_DLG_ALL_WRONG"); $("undoBtn").classList.add("nudge"); return;
+      }
+      setMood("normal"); say("STR_DLG_UNDO", { count: L.len - S.path.length });
+    });
   }
 
   function restart() {
     if (S.busy) return;
-    if (mode === "daily") loadDaily(L.daily.id); else loadStage(L.index);
+    if (mode === "daily") loadDaily(L.daily.id); else { endPlay("restart"); loadStage(L.index); }
   }
 
-  // Depth-first search for routes that cover every open cell and end on the goal, continuing `path`.
-  // Returns { next, count, nodes }: next = first cell of a found route (-1 none, -2 gave up at `limit` nodes).
-  // countUpTo > 0 keeps searching until that many routes are found (used to check uniqueness).
-  function search(path, limit, countUpTo = 0) {
-    const nb = L.nb, total = L.n * L.n, G = L.goal;
-    const vis = new Uint8Array(total);
-    for (const c of path) vis[c] = 1;
-    let nodes = 0, count = 0;
-    const free = q => { let d = 0; for (const r of nb[q]) if (!vis[r]) d++; return d; };
-    // The route must end on the goal, so every other open cell needs a way in and a way out,
-    // and the goal needs at least a way in.
-    const seen = new Uint8Array(total), queue = new Int16Array(total);
-    function hopeless(c, rem) {
-      if (rem <= 1) return false;
-      for (let q = 0; q < total; q++) {
-        if (L.rock[q] || vis[q]) continue;
-        const d = free(q) + (nb[c].includes(q) ? 1 : 0);
-        if (d < (q === G ? 1 : 2)) return true;
-      }
-      // every open cell must still be reachable from here
-      seen.fill(0); seen[c] = 1;
-      let head = 0, tail = 0, reached = 0;
-      queue[tail++] = c;
-      while (head < tail) {
-        const p = queue[head++];
-        for (const r of nb[p]) if (!vis[r] && !seen[r]) { seen[r] = 1; reached++; queue[tail++] = r; }
-      }
-      return reached < rem;
-    }
-    function order(c, rem) {
-      return nb[c].filter(q => !vis[q] && (q !== G || rem === 1))
-        .map(q => [q, free(q)]).sort((a, b) => a[1] - b[1]).map(p => p[0]);
-    }
-    // returns true to stop searching
-    function dfs(c, rem) {
-      if (rem === 0) return ++count >= Math.max(1, countUpTo);
-      if (++nodes > limit) throw "timeout";
-      if (hopeless(c, rem)) return false;
-      for (const q of order(c, rem)) {
-        vis[q] = 1;
-        const stop = dfs(q, rem - 1);
-        vis[q] = 0;
-        if (stop) return true;
-      }
-      return false;
-    }
-    const c0 = path[path.length - 1], rem0 = L.len - path.length;
-    let first = -1;
-    try {
-      if (rem0 === 0 || hopeless(c0, rem0)) return { next: -1, count, nodes };
-      for (const q of order(c0, rem0)) {
-        vis[q] = 1;
-        const before = count;
-        const stop = dfs(q, rem0 - 1);
-        vis[q] = 0;
-        if (count > before && first < 0) first = q;
-        if (stop) break;
-      }
-      return { next: first, count, nodes };
-    } catch (e) { return { next: first >= 0 ? first : -2, count, nodes }; }
-  }
+  const search = (path, limit, countUpTo = 0) => searchLevel(L, path, limit, countUpTo);
 
   // Find the latest point on the player's path from which a full route still exists.
   // Returns { k, next }: keep the first k cells of the path, then step to `next`.
@@ -1066,6 +1334,7 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     }
     const { k, next } = findRewind();
     S.hintsUsed++;
+    logPlay("hint_used");
     $("undoBtn").classList.remove("nudge");
     const back = S.path.length - k;
     if (back === 0) {
@@ -1114,7 +1383,7 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     $("statHint").textContent = t("STR_UI_STAT_HINT", { count: S.hintsUsed });
     $("clearReward").hidden = !S.reward;
     $("clearReward").textContent = t("STR_UI_CLEAR_REWARD", { count: S.reward });
-    $("nextBtn").textContent = t(last ? "STR_UI_SELECT_STAGE" : "STR_UI_NEXT");
+    $("nextBtn").textContent = t(last ? "STR_UI_RESTART_ALL" : "STR_UI_NEXT");
     $("clearOverlay").hidden = false;
     $("nextBtn").focus();
     petals();
@@ -1208,6 +1477,7 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
       if (!db) return;
       RANK.db = db; RANK.user = user;
       RANK.uid = user ? await user.id() : null;
+      flushLogs();
       db.collection("ranks").limit(1000).onSnapshot(snap => {
         RANK.docs = snap.docs; RANK.live = true;
         if (!$("rankOverlay").hidden) renderRank();
@@ -1290,26 +1560,60 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     $("rankNote").textContent = RANK.saveFailed ? t("STR_UI_RANK_SAVE_FAIL") : RANK.live ? t("STR_UI_RANK_LIVE") : t("STR_UI_RANK_OFFLINE");
   }
 
-  function openSelect() {
-    const grid = $("stageGrid");
-    grid.innerHTML = "";
-    STAGES.forEach(([n], i) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      const type = STAGES[i][3];
-      b.className = (cleared.has(i) ? "done " : "") + (L && i === L.index ? "cur " : "") + (type === "H" ? "hurdle" : type === "L" ? "long" : "");
-      const tag = type === "H" ? t("STR_UI_TAG_HURDLE") : type === "L" ? t("STR_UI_TAG_LONG") : "";
-      b.innerHTML = `${i + 1}<small>${n}×${n}</small>` + (tag ? `<i class="tag">${tag}</i>` : "");
-      const sep = t("STR_UI_ARIA_SEP");
-      b.setAttribute("aria-label", t("STR_UI_STAGE_ARIA", { stage: i + 1, size: `${n}×${n}` }) + (tag ? sep + tag : "") + (cleared.has(i) ? sep + t("STR_UI_ARIA_CLEARED") : ""));
-      b.addEventListener("click", () => { $("selectOverlay").hidden = true; loadStage(i); });
-      grid.appendChild(b);
-    });
-    $("selectOverlay").hidden = false;
-  }
-
   // ---------- wiring ----------
   // pointerdown reacts the moment a finger touches the board (no click delay on phones)
+  // ---------- collected metrics view (#metrics) ----------
+  function openOps() {
+    const m = computeMetrics([LOG.player], LOG.plays, id => STAGES[id - 1] && STAGES[id - 1][3]);
+    const pct = x => x ? Math.round(x.v * 100) + "%" : "–";
+    const num = x => x ? x.v.toFixed(2) : "–";
+    const groups = [
+      ["STR_OPS_G_CASUAL", [
+        ["STR_OPS_EARLY", pct(m.early), t("STR_OPS_SUB_EARLY", { n: m.early ? m.early.n : 0 })],
+        ["STR_OPS_D1D7", `${pct(m.d1)} / ${pct(m.d7)}`, t("STR_OPS_SUB_D1D7", { n1: m.d1 ? m.d1.n : 0, n7: m.d7 ? m.d7.n : 0 })]]],
+      ["STR_OPS_G_PIECE", [
+        ["STR_OPS_PIECE_QUIT", pct(m.pieceQuit), t("STR_OPS_SUB_PIECE_QUIT", { k: pct(m.pieceQuitBands[0]), r: pct(m.pieceQuitBands[1]),
+          b: pct(m.pieceQuitBands[2]), a: pct(m.pieceQuitBands[3]), prev: pct(m.pieceQuitPrev) })],
+        ["STR_OPS_PIECE_STUCK", num(m.pieceStuck), t("STR_OPS_SUB_PIECE_STUCK", { a: num(m.pieceStuckFront), b: num(m.pieceStuckBack) })]]],
+      ["STR_OPS_G_HURDLE", [
+        ["STR_OPS_HURDLE_QUIT", pct(m.hurdleQuit), t("STR_OPS_SUB_VS_PREV", { b: pct(m.hurdlePrevQuit) })],
+        ["STR_OPS_HURDLE_HINT", pct(m.hurdleHint), t("STR_OPS_SUB_VS_NORMAL", { b: pct(m.normalHint) })],
+        ["STR_OPS_REST_CLEAR", pct(m.restClear), t("STR_OPS_SUB_VS_NORMAL", { b: pct(m.normalClear) })]]],
+    ];
+    const list = $("opsList");
+    list.innerHTML = "";
+    for (const [g, rows] of groups) {
+      const h = document.createElement("h3");
+      h.textContent = t(g);
+      list.appendChild(h);
+      for (const [k, v, sub] of rows) {
+        const row = document.createElement("div");
+        row.className = "ops-row";
+        for (const [tag, text, cls] of [["span", t(k)], ["span", v, "v"], ["small", sub]]) {
+          const el = document.createElement(tag);
+          el.textContent = text;
+          if (cls) el.className = cls;
+          row.appendChild(el);
+        }
+        list.appendChild(row);
+      }
+    }
+    $("opsNote").textContent = t("STR_OPS_NOTE", { players: 1, plays: LOG.plays.filter(r => r.result).length });
+    $("opsOverlay").hidden = false;
+  }
+  function exportLogs() {
+    const data = { exported_at: iso(), players: [cleanRow(LOG.player)], plays: LOG.plays.map(cleanRow) };
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
+    a.download = `knight-tour-log-${today()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  $("opsExport").addEventListener("click", exportLogs);
+  $("closeOps").addEventListener("click", () => { $("opsOverlay").hidden = true; });
+  $("opsOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
+  addEventListener("hashchange", () => { if (location.hash === "#metrics") openOps(); });
+
   board.addEventListener("pointerdown", e => {
     if (!L || !e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
     e.preventDefault();
@@ -1326,22 +1630,22 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   $("exitOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
   $("exitConfirmBtn").addEventListener("click", () => {
     persist();
+    if (mode === "main" && !S.done) endPlay("quit");
     $("exitOverlay").hidden = true;
     try { window.close(); } catch {}
     setTimeout(() => { $("endedOverlay").hidden = false; $("resumeBtn").focus(); }, 150);
   });
-  $("resumeBtn").addEventListener("click", () => { $("endedOverlay").hidden = true; });
+  $("resumeBtn").addEventListener("click", () => {
+    $("endedOverlay").hidden = true;
+    if (mode === "main" && !S.done) startPlay(L.index);   // a resumed stage is a new attempt
+  });
   $("adWatchBtn").addEventListener("click", playAd);
   $("adCloseBtn").addEventListener("click", closeAd);
   $("adOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeAd(); });
-  $("stageBtn").addEventListener("click", openSelect);
-  $("closeSelect").addEventListener("click", () => { $("selectOverlay").hidden = true; });
-  // tapping the dimmed area above the bottom sheet closes it
-  $("selectOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
   $("nextBtn").addEventListener("click", () => {
     $("clearOverlay").hidden = true;
     if (mode === "daily") { openDaily(); return; }
-    if (L.index === STAGES.length - 1) openSelect(); else loadStage(L.index + 1);
+    loadStage(L.index === STAGES.length - 1 ? 0 : L.index + 1);   // stages run in order; after the last one the journey starts over
   });
   $("clearRankBtn").addEventListener("click", () => { $("clearOverlay").hidden = true; openRank(L.daily.id); });
   $("dailyBtn").addEventListener("click", openDaily);
@@ -1354,8 +1658,8 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     if (!$("adPlaying").hidden || !$("endedOverlay").hidden) return;
     if (!$("exitOverlay").hidden) { if (e.key === "Escape") $("exitOverlay").hidden = true; return; }
     if (!$("adOverlay").hidden) { if (e.key === "Escape") closeAd(); return; }
-    if (!$("clearOverlay").hidden || !$("selectOverlay").hidden || !$("dailyOverlay").hidden || !$("rankOverlay").hidden) {
-      if (e.key === "Escape") { $("selectOverlay").hidden = true; $("dailyOverlay").hidden = true; $("rankOverlay").hidden = true; }
+    if (!$("clearOverlay").hidden || !$("dailyOverlay").hidden || !$("rankOverlay").hidden || !$("opsOverlay").hidden) {
+      if (e.key === "Escape") { $("dailyOverlay").hidden = true; $("rankOverlay").hidden = true; $("opsOverlay").hidden = true; }
       return;
     }
     const k = e.key.toLowerCase();
@@ -1364,24 +1668,29 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     else if (k === "r") restart();
   });
   $("clearArt").innerHTML = `<img src="${IMG("knight_happy")}" alt="" draggable="false">`;
-  // language switch (no button yet): refresh static markup, bubble, HUD and the stage sheet
+  // language switch (no button yet): refresh static markup, bubble, HUD and open sheets
   function setLang(lang) {
     LANG = lang;
     applyStaticText();
     if (lastSay) say(lastSay.key, lastSay.params);
     if (L) $("stageLabel").textContent = mode === "daily" ? t("STR_UI_DAILY_LABEL", { name: t(L.daily.key) }) : t("STR_UI_STAGE", { stage: L.index + 1 });
-    if (!$("selectOverlay").hidden) openSelect();
     if (!$("dailyOverlay").hidden) openDaily();
     if (!$("rankOverlay").hidden) openRank();
+    if (!$("opsOverlay").hidden) openOps();
   }
-  if (location.hash === "#debug") window.__kt = { setLang, search, findRewind, loadStage, loadDaily, dailyLevel, daily: () => daily, rank: RANK, state: () => S, level: () => L, stages: STAGES };
+  if (location.hash === "#debug") window.__kt = { tap: c => tap(c), undo: () => undo(), wrong: () => S.wrong, log: LOG, openOps, setLang, search, findRewind, loadStage, loadDaily, dailyLevel, daily: () => daily, rank: RANK, state: () => S, level: () => L, stages: STAGES };
   new ResizeObserver(layout).observe(area);
 
   function boot(d) {
     applyStaticText();
-    let st = d && Number.isInteger(d.stage) ? d.stage : saved.stage;
-    if (!Number.isInteger(st) || st < 0 || st >= STAGES.length) st = 0;
+    // this visit: close attempts a closed app left open, then stamp the login
+    for (const r of LOG.plays) if (!r.result) closeRow(r, "quit", r._last || Date.parse(r.started_at));
+    LOG.player.last_login_at = iso();
+    // a live reload may keep the stage in progress, but never jump past the first stage not cleared
+    let st = d && Number.isInteger(d.stage) ? d.stage : mainIndex;
+    if (st < 0 || st > firstOpen()) st = firstOpen();
     loadStage(st, d && d.path);
+    if (location.hash === "#metrics") openOps();
   }
   try { window.claude?.hot?.snapshot?.(() => ({ stage: L && L.index, path: S && S.path })); } catch {}
   const hot = window.claude?.hot;
