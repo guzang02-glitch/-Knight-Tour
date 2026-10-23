@@ -308,13 +308,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
 .stage-grid button.hurdle { border-width: 4px; }
 .stage-grid { padding-top: 12px; row-gap: 14px; }
 
-/* metrics view (#metrics): one row per collected metric */
-.ops-list { width: 100%; max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; text-align: left; }
-.ops-list h3 { font-family: var(--f-display); font-weight: 400; font-size: 16px; margin: 6px 0 0; color: var(--pink-deep); }
-.ops-row { border: 2px solid var(--lilac); border-radius: 12px; padding: 6px 10px; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 14px; }
-.ops-row .v { font-family: var(--f-display); font-size: 16px; font-variant-numeric: tabular-nums; }
-.ops-row small { grid-column: 1 / -1; color: var(--ink-soft); font-size: 12px; }
-
 .petal {
   position: fixed; top: -20px; z-index: 30; width: 12px; height: 10px; pointer-events: none;
   border-radius: 70% 0 70% 0;
@@ -345,10 +338,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
       <div class="fill" id="progFill"></div>
       <div class="label"><img src="img/flower.png" alt=""><span id="progText">1 / 6</span></div>
     </div>
-    <!-- owner / editors on claude.ai only: collected metrics of every player -->
-    <button class="exit-btn ops-btn" id="opsBtn" type="button" data-str-aria="STR_OPS_TITLE" hidden>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V11M12 19V5M19 19v-6"/></svg>
-    </button>
     <button class="exit-btn" id="exitBtn" type="button" data-str-aria="STR_UI_EXIT">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
@@ -424,20 +413,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   </div>
 </div>
 
-<!-- collected metrics (open with #metrics): computed from this device's Player / PlayLog rows -->
-<div class="overlay sheet" id="opsOverlay" hidden>
-  <div class="card" role="dialog" aria-modal="true" aria-labelledby="opsTitle">
-    <div class="grab" aria-hidden="true"></div>
-    <h2 id="opsTitle" data-str="STR_OPS_TITLE"></h2>
-    <p class="legend" id="opsNote"></p>
-    <div class="ops-list" id="opsList"></div>
-    <div class="actions">
-      <button class="btn pink" id="opsExport" type="button" data-str="STR_OPS_EXPORT"></button>
-      <button class="btn" id="closeOps" type="button" data-str="STR_UI_CLOSE"></button>
-    </div>
-  </div>
-</div>
-
 
 <script>
 (() => {
@@ -462,26 +437,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     STR_UI_STAT_HINT:         { ko: "힌트 {count}회", en: "Hint ×{count}", ja: "ヒント {count}回" },
     STR_UI_NEXT:              { ko: "다음 스테이지", en: "Next stage", ja: "次のステージ" },
     STR_UI_CLOSE:             { ko: "닫기", en: "Close", ja: "閉じる" },
-    STR_OPS_TITLE:            { ko: "수집 지표", en: "Collected metrics", ja: "収集指標" },
-    STR_OPS_NOTE:             { ko: "이 기기 기록: 유저 {players}명, 시도 {plays}회", en: "This device: {players} players, {plays} attempts", ja: "この端末の記録：ユーザー{players}人、挑戦{plays}回" },
-    STR_OPS_NOTE_SHARED:      { ko: "모든 플레이어: 유저 {players}명, 시도 {plays}회", en: "All players: {players} players, {plays} attempts", ja: "全プレイヤー：ユーザー{players}人、挑戦{plays}回" },
-    STR_OPS_EXPORT:          { ko: "로그 내보내기 (JSON)", en: "Export logs (JSON)", ja: "ログを書き出す (JSON)" },
-    STR_OPS_G_CASUAL:         { ko: "캐주얼, 초반 이탈", en: "Casual, early churn", ja: "カジュアル、序盤の離脱" },
-    STR_OPS_G_PIECE:          { ko: "새 기물과 이탈", en: "New pieces and churn", ja: "新しい駒と離脱" },
-    STR_OPS_G_HURDLE:         { ko: "허들, 쉬어가는 길 영향", en: "Hurdles and rest roads", ja: "ハードルと休憩の道" },
-    STR_OPS_EARLY:            { ko: "초반 이탈률 (1~20 스테이지)", en: "Early churn (stages 1–20)", ja: "序盤の離脱率（ステージ1〜20）" },
-    STR_OPS_SUB_EARLY:        { ko: "7일 미접속, 20 스테이지 이하 / 유저 {n}명", en: "No visit for 7 days at stage ≤ 20 / {n} players", ja: "7日未接続、ステージ20以下 / ユーザー{n}人" },
-    STR_OPS_D1D7:             { ko: "D1, D7 리텐션", en: "D1, D7 retention", ja: "D1、D7リテンション" },
-    STR_OPS_SUB_D1D7:         { ko: "대상 D1 {n1}명, D7 {n7}명", en: "Eligible: D1 {n1}, D7 {n7}", ja: "対象 D1 {n1}人、D7 {n7}人" },
-    STR_OPS_PIECE_QUIT:       { ko: "기물 첫 3 스테이지 이탈률", en: "Churn in a piece's first 3 stages", ja: "駒の最初の3ステージ離脱率" },
-    STR_OPS_SUB_PIECE_QUIT:   { ko: "킹 {k}, 룩 {r}, 비숍 {b}, 전체 {a} / 직전 3 스테이지 {prev}", en: "King {k}, rook {r}, bishop {b}, all {a} / previous 3 stages {prev}", ja: "キング{k}、ルーク{r}、ビショップ{b}、全部{a} / 直前3ステージ{prev}" },
-    STR_OPS_PIECE_STUCK:      { ko: "기물 이동 직후 막힘 (시도당)", en: "Stuck right after a piece move (per attempt)", ja: "駒の移動直後の行き止まり（挑戦あたり）" },
-    STR_OPS_SUB_PIECE_STUCK:  { ko: "구간 앞 10 스테이지 {a} → 뒤 10 스테이지 {b}", en: "First 10 stages of a band {a} → last 10 {b}", ja: "区間の前10ステージ{a} → 後10ステージ{b}" },
-    STR_OPS_HURDLE_QUIT:      { ko: "허들 이탈률", en: "Hurdle churn", ja: "ハードル離脱率" },
-    STR_OPS_SUB_VS_PREV:      { ko: "직전 일반 {b}", en: "Normal stage before {b}", ja: "直前の通常 {b}" },
-    STR_OPS_HURDLE_HINT:      { ko: "허들 힌트 사용률", en: "Hint use on hurdles", ja: "ハードルのヒント使用率" },
-    STR_OPS_REST_CLEAR:       { ko: "쉬어가는 길 클리어율", en: "Rest road clear rate", ja: "休憩の道のクリア率" },
-    STR_OPS_SUB_VS_NORMAL:    { ko: "일반 {b}", en: "Normal {b}", ja: "通常 {b}" },
     STR_UI_EXIT:              { ko: "게임 종료", en: "Quit game", ja: "ゲーム終了" },
     STR_UI_EXIT_TITLE:        { ko: "게임을 종료할까요?", en: "Quit the game?", ja: "ゲームを終了しますか？" },
     STR_UI_EXIT_DESC:         { ko: "클리어 기록과 힌트는 자동으로 저장돼요.", en: "Your cleared stages and hints are saved automatically.", ja: "クリア記録とヒントは自動で保存されます。" },
@@ -762,108 +717,13 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   };
   const saved = store.get();
   const cleared = new Set(Array.isArray(saved.cleared) ? saved.cleared : []);
-  // Hints are one shared wallet: 5 to start, +1 for each stage cleared for the first time, +1 per rewarded ad.
-  const HINT_START = 5, HINT_CLEAR_REWARD = 1, HINT_AD_REWARD = 1;
+  // Hints are one shared wallet: 5 to start, +1 for the first clear of every 10th stage (10, 20, … 100), +1 per rewarded ad.
+  const HINT_START = 5, HINT_CLEAR_REWARD = 1, HINT_REWARD_EVERY = 10, HINT_AD_REWARD = 1;
   let hints = Number.isInteger(saved.hints) && saved.hints >= 0 ? saved.hints : HINT_START;
   // stages are played strictly in order: always resume at the first stage not cleared yet
   const firstOpen = () => { let i = 0; while (i < STAGES.length - 1 && cleared.has(i)) i++; return i; };
   let mainIndex = firstOpen();   // current stage
-  const persist = () => { store.set({ cleared: [...cleared], stage: mainIndex, hints }); syncPlayer(); };
-
-  // ---------- logs: Player + PlayLog (system doc table chapter, proposal 4.1) ----------
-  // Player = this device's user state. PlayLog = one row per main-stage attempt; 다시하기 closes it as restart,
-  // leaving (X, closed app) as quit. An attempt still open at the next visit is closed as quit
-  // at its last action. Rows live on this device (knight-tour-log); on claude.ai each finished row and the Player
-  // are also written to the artifact store (players/<user id>, playlogs/<user id>/rows/<play_id>).
-  const LKEY = "knight-tour-log", LOG_MAX = 3000;
-  const iso = (ms = Date.now()) => new Date(ms).toISOString();
-  const newId = p => p + (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
-  const LOG = (() => { try { return JSON.parse(localStorage.getItem(LKEY)) || {}; } catch { return {}; } })();
-  if (!LOG.player || !LOG.player.player_id) LOG.player = { player_id: newId("p_"), created_at: iso() };
-  if (!Array.isArray(LOG.plays)) LOG.plays = [];
-  let play = null;                                   // the open PlayLog row
-  // export / upload copy: fields starting with _ are bookkeeping only
-  const cleanRow = r => Object.fromEntries(Object.entries(r).filter(([k]) => k[0] !== "_"));
-  function saveLog() {
-    if (LOG.plays.length > LOG_MAX) LOG.plays.splice(0, LOG.plays.length - LOG_MAX);
-    try { localStorage.setItem(LKEY, JSON.stringify(LOG)); } catch {}
-  }
-  function syncPlayer() {
-    Object.assign(LOG.player, { lang: LANG, hint_count: hints, current_stage: mainIndex + 1,
-      cleared_stages: [...cleared].sort((a, b) => a - b).map(i => i + 1) });
-    saveLog();
-  }
-  function closeRow(r, result, at) {
-    r.result = result; r.ended_at = iso(at); r.play_time_ms = Math.max(0, at - Date.parse(r.started_at));
-    delete r._last;
-  }
-  function startPlay(i) {
-    endPlay("quit");
-    const stage_id = i + 1;
-    play = { play_id: newId("pl_"), player_id: LOG.player.player_id, stage_id, seed: STAGES[i][2],
-      attempt_no: LOG.plays.filter(r => r.stage_id === stage_id).length + 1,
-      started_at: iso(), ended_at: null, result: null, play_time_ms: null,
-      move_count: 0, undo_count: 0, hint_used: 0, stuck_count: 0, piece_stuck_count: 0, _last: Date.now() };
-    LOG.plays.push(play);
-    saveLog();
-  }
-  function endPlay(result) {
-    if (!play) return;
-    closeRow(play, result, Date.now());
-    play = null;
-    saveLog();
-    flushLogs();
-  }
-  const logPlay = field => { if (!play) return; play[field]++; play._last = Date.now(); saveLog(); };
-  // send finished rows the shared store has not received yet (claude.ai only).
-  // Each player writes only their own players/<uid> and playlogs/<uid>/rows/<play_id>; owner and editors read all.
-  async function flushLogs() {
-    if (!SHARED.db || !SHARED.uid) return;
-    try {
-      await SHARED.db.doc("players/" + SHARED.uid).set(cleanRow(LOG.player));
-      for (const r of LOG.plays) if (r.result && !r._sent) {
-        await SHARED.db.doc(`playlogs/${SHARED.uid}/rows/${r.play_id}`).set(cleanRow(r));
-        r._sent = 1;
-      }
-      saveLog();
-    } catch {}
-  }
-
-  // ==METRICS==
-  // Proposal 4.1: churn-first metrics from Player and PlayLog rows (tools/metrics.js runs the same code on exported logs).
-  // stageType(stage_id) → "N" normal | "H" hurdle | "L" rest road. Rates count finished attempts only; null = no data.
-  function computeMetrics(players, plays, stageType, now = Date.now()) {
-    const DAY = 864e5, ts = s => Date.parse(s);
-    const done = plays.filter(r => r.result);
-    const rate = (rows, f) => rows.length ? { v: rows.filter(f).length / rows.length, n: rows.length } : null;
-    const avg = (rows, f) => rows.length ? { v: rows.reduce((s, r) => s + f(r), 0) / rows.length, n: rows.length } : null;
-    const span = (a, b) => done.filter(r => r.stage_id >= a && r.stage_id <= b);
-    const quit = r => r.result === "quit";
-    // churned = no visit for 7 days; D-n = came back at least n days after the first visit
-    const early = rate(players, p => now - ts(p.last_login_at) >= 7 * DAY && p.current_stage <= 20);
-    const dn = d => rate(players.filter(p => now - ts(p.created_at) >= d * DAY), p => ts(p.last_login_at) - ts(p.created_at) >= d * DAY);
-    // pieces appear at 21 king, 41 rook, 61 bishop, 81 all; each band runs 20 stages
-    const FIRST = [21, 41, 61, 81], BANDS = FIRST.map(a => [a, a + 19]);
-    const first3 = FIRST.map(a => span(a, a + 2));
-    const stuck = r => r.piece_stuck_count || 0;
-    const type = k => done.filter(r => stageType(r.stage_id) === k);
-    return {
-      early, d1: dn(1), d7: dn(7),
-      pieceQuit: rate(first3.flat(), quit),
-      pieceQuitBands: first3.map(rows => rate(rows, quit)),
-      pieceQuitPrev: rate(FIRST.flatMap(a => span(a - 3, a - 1)), quit),
-      pieceStuck: avg(span(21, 100), stuck),
-      pieceStuckFront: avg(BANDS.flatMap(([a]) => span(a, a + 9)), stuck),
-      pieceStuckBack: avg(BANDS.flatMap(([, b]) => span(b - 9, b)), stuck),
-      hurdleQuit: rate(type("H"), quit),
-      hurdlePrevQuit: rate(done.filter(r => stageType(r.stage_id + 1) === "H"), quit),
-      hurdleHint: rate(type("H"), r => r.hint_used > 0),
-      normalHint: rate(type("N"), r => r.hint_used > 0),
-      restClear: rate(type("L"), r => r.result === "clear"),
-      normalClear: rate(type("N"), r => r.result === "clear"),
-    };
-  }
-  // ==/METRICS==
+  const persist = () => store.set({ cleared: [...cleared], stage: mainIndex, hints });
 
   let L = null, S = null, cellPx = 40;
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -898,7 +758,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
 
   function loadStage(i, replay) {
     mainIndex = i;
-    startPlay(i);
     L = genLevel(STAGES[i]);
     L.index = i;
     L.nb = neighbors(L);
@@ -1061,7 +920,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   function move(c) {
     const from = cur();
     S.path.push(c); S.vis[c] = 1; S.hintCell = -1; S.busy = true;
-    logPlay("move_count");
     setMood("jump");
     $("undoBtn").classList.remove("nudge");
     render();
@@ -1072,19 +930,14 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     render();
     const left = L.len - S.path.length;
     if (left === 0) {
-      if (!cleared.has(L.index)) { S.reward = HINT_CLEAR_REWARD; hints += S.reward; }
+      if (!cleared.has(L.index) && (L.index + 1) % HINT_REWARD_EVERY === 0) { S.reward = HINT_CLEAR_REWARD; hints += S.reward; }
       S.done = true; setMood("happy"); render(); buzz([30, 50, 30, 50, 60]);
       say("STR_DLG_CLEAR");
       cleared.add(L.index); persist();
-      endPlay("clear");
       setTimeout(showClear, reduced ? 0 : 550);
       return;
     }
     if (!options().length || options().every(isWrong)) {
-      if (fromPlay) {
-        logPlay("stuck_count");
-        if (L.gim && L.gim[S.path[S.path.length - 2]]) logPlay("piece_stuck_count");   // the last move used a piece
-      }
       setMood("sad"); buzz([20, 40, 20]);
       say(options().length ? "STR_DLG_ALL_WRONG" : "STR_DLG_STUCK", { count: left });
       $("undoBtn").classList.add("nudge");
@@ -1101,7 +954,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     const deadEnd = !options().length || options().every(isWrong);   // checked before stepping back
     const from = S.path.pop();
     S.vis[from] = 0; S.undos++; S.hintCell = -1; S.busy = true;
-    logPlay("undo_count");
     if (deadEnd) markWrong(S.path.length, from);
     $("undoBtn").classList.remove("nudge");
     setMood("jump");
@@ -1117,7 +969,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
 
   function restart() {
     if (S.busy) return;
-    endPlay("restart");
     loadStage(L.index);
   }
 
@@ -1145,7 +996,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     hints--; persist();
     const { k, next } = findRewind();
     S.hintsUsed++;
-    logPlay("hint_used");
     $("undoBtn").classList.remove("nudge");
     const back = S.path.length - k;
     if (back === 0) {
@@ -1227,96 +1077,6 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
       say("STR_DLG_HINT_AD_REWARD");
     }, 1000);
   }
-
-  // ---------- shared store (claude.ai artifact db) ----------
-  // Only used for the logs: each player writes their own rows, owner and editors read everyone's.
-  const SHARED = { db: null, uid: null, canEdit: false };
-  (async () => {
-    try {
-      if (!window.claude?.use) return;
-      const [db, user] = await Promise.all([claude.use("db"), claude.use("user")]);
-      if (!db) return;
-      SHARED.db = db;
-      SHARED.uid = user ? await user.id() : null;
-      SHARED.canEdit = user ? await user.canEdit() : false;   // owner / editors see everyone's metrics
-      $("opsBtn").hidden = !SHARED.canEdit;
-      flushLogs();
-    } catch {}
-  })();
-
-  // ---------- collected metrics view (#metrics) ----------
-  // Owner / editors on claude.ai see every player's rows from the shared store; everyone else sees this device.
-  let opsData = null;
-  async function loadOpsData() {
-    if (SHARED.db && SHARED.canEdit) {
-      try {
-        const ps = (await SHARED.db.collection("players").limit(1000).get()).docs;
-        const plays = [];
-        for (const p of ps) for (const r of (await SHARED.db.collection(`playlogs/${p.id}/rows`).limit(1000).get()).docs) plays.push(r.data());
-        return { shared: true, players: ps.map(p => p.data()), plays };
-      } catch {}
-    }
-    return { shared: false, players: [cleanRow(LOG.player)], plays: LOG.plays.map(cleanRow) };
-  }
-  async function openOps() {
-    opsData = await loadOpsData();
-    const m = computeMetrics(opsData.players, opsData.plays, id => STAGES[id - 1] && STAGES[id - 1][3]);
-    const pct = x => x ? Math.round(x.v * 100) + "%" : "–";
-    const num = x => x ? x.v.toFixed(2) : "–";
-    const groups = [
-      ["STR_OPS_G_CASUAL", [
-        ["STR_OPS_EARLY", pct(m.early), t("STR_OPS_SUB_EARLY", { n: m.early ? m.early.n : 0 })],
-        ["STR_OPS_D1D7", `${pct(m.d1)} / ${pct(m.d7)}`, t("STR_OPS_SUB_D1D7", { n1: m.d1 ? m.d1.n : 0, n7: m.d7 ? m.d7.n : 0 })]]],
-      ["STR_OPS_G_PIECE", [
-        ["STR_OPS_PIECE_QUIT", pct(m.pieceQuit), t("STR_OPS_SUB_PIECE_QUIT", { k: pct(m.pieceQuitBands[0]), r: pct(m.pieceQuitBands[1]),
-          b: pct(m.pieceQuitBands[2]), a: pct(m.pieceQuitBands[3]), prev: pct(m.pieceQuitPrev) })],
-        ["STR_OPS_PIECE_STUCK", num(m.pieceStuck), t("STR_OPS_SUB_PIECE_STUCK", { a: num(m.pieceStuckFront), b: num(m.pieceStuckBack) })]]],
-      ["STR_OPS_G_HURDLE", [
-        ["STR_OPS_HURDLE_QUIT", pct(m.hurdleQuit), t("STR_OPS_SUB_VS_PREV", { b: pct(m.hurdlePrevQuit) })],
-        ["STR_OPS_HURDLE_HINT", pct(m.hurdleHint), t("STR_OPS_SUB_VS_NORMAL", { b: pct(m.normalHint) })],
-        ["STR_OPS_REST_CLEAR", pct(m.restClear), t("STR_OPS_SUB_VS_NORMAL", { b: pct(m.normalClear) })]]],
-    ];
-    const list = $("opsList");
-    list.innerHTML = "";
-    for (const [g, rows] of groups) {
-      const h = document.createElement("h3");
-      h.textContent = t(g);
-      list.appendChild(h);
-      for (const [k, v, sub] of rows) {
-        const row = document.createElement("div");
-        row.className = "ops-row";
-        for (const [tag, text, cls] of [["span", t(k)], ["span", v, "v"], ["small", sub]]) {
-          const el = document.createElement(tag);
-          el.textContent = text;
-          if (cls) el.className = cls;
-          row.appendChild(el);
-        }
-        list.appendChild(row);
-      }
-    }
-    $("opsNote").textContent = t(opsData.shared ? "STR_OPS_NOTE_SHARED" : "STR_OPS_NOTE",
-      { players: opsData.players.length, plays: opsData.plays.filter(r => r.result).length });
-    $("opsOverlay").hidden = false;
-  }
-  async function exportLogs() {
-    const d = opsData || await loadOpsData();
-    const json = JSON.stringify({ exported_at: iso(), players: d.players, plays: d.plays }, null, 1);
-    const filename = `knight-tour-log-${iso().slice(0, 10)}.json`;
-    // on claude.ai the page cannot download by itself: the platform asks the viewer to save the file
-    const downloads = window.claude?.use ? await claude.use("downloads").catch(() => null) : null;
-    if (downloads) { try { await downloads.save({ filename, data: json }); } catch {} return; }
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([json], { type: "application/json" }));
-    a.download = filename;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  }
-  $("opsBtn").addEventListener("click", openOps);
-  $("opsExport").addEventListener("click", exportLogs);
-  $("closeOps").addEventListener("click", () => { $("opsOverlay").hidden = true; });
-  $("opsOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
-  addEventListener("hashchange", () => { if (location.hash === "#metrics") openOps(); });
-
   // ---------- wiring ----------
   // pointerdown reacts the moment a finger touches the board (no click delay on phones)
   board.addEventListener("pointerdown", e => {
@@ -1335,15 +1095,11 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
   $("exitOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) e.currentTarget.hidden = true; });
   $("exitConfirmBtn").addEventListener("click", () => {
     persist();
-    if (!S.done) endPlay("quit");
     $("exitOverlay").hidden = true;
     try { window.close(); } catch {}
     setTimeout(() => { $("endedOverlay").hidden = false; $("resumeBtn").focus(); }, 150);
   });
-  $("resumeBtn").addEventListener("click", () => {
-    $("endedOverlay").hidden = true;
-    if (!S.done) startPlay(L.index);   // a resumed stage is a new attempt
-  });
+  $("resumeBtn").addEventListener("click", () => { $("endedOverlay").hidden = true; });
   $("adWatchBtn").addEventListener("click", playAd);
   $("adCloseBtn").addEventListener("click", closeAd);
   $("adOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeAd(); });
@@ -1355,10 +1111,7 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     if (!$("adPlaying").hidden || !$("endedOverlay").hidden) return;
     if (!$("exitOverlay").hidden) { if (e.key === "Escape") $("exitOverlay").hidden = true; return; }
     if (!$("adOverlay").hidden) { if (e.key === "Escape") closeAd(); return; }
-    if (!$("clearOverlay").hidden || !$("opsOverlay").hidden) {
-      if (e.key === "Escape") $("opsOverlay").hidden = true;
-      return;
-    }
+    if (!$("clearOverlay").hidden) return;
     const k = e.key.toLowerCase();
     if (k === "z" || k === "backspace") undo();
     else if (k === "h") hint();
@@ -1371,21 +1124,16 @@ button:focus-visible { outline: 3px solid var(--pink-deep); outline-offset: 3px;
     applyStaticText();
     if (lastSay) say(lastSay.key, lastSay.params);
     if (L) $("stageLabel").textContent = t("STR_UI_STAGE", { stage: L.index + 1 });
-    if (!$("opsOverlay").hidden) openOps();
   }
-  if (location.hash === "#debug") window.__kt = { tap: c => tap(c), undo: () => undo(), wrong: () => S.wrong, log: LOG, openOps, setLang, search, findRewind, loadStage, shared: SHARED, state: () => S, level: () => L, stages: STAGES };
+  if (location.hash === "#debug") window.__kt = { tap: c => tap(c), undo: () => undo(), wrong: () => S.wrong, setLang, search, findRewind, loadStage, state: () => S, level: () => L, stages: STAGES };
   new ResizeObserver(layout).observe(area);
 
   function boot(d) {
     applyStaticText();
-    // this visit: close attempts a closed app left open, then stamp the login
-    for (const r of LOG.plays) if (!r.result) closeRow(r, "quit", r._last || Date.parse(r.started_at));
-    LOG.player.last_login_at = iso();
     // a live reload may keep the stage in progress, but never jump past the first stage not cleared
     let st = d && Number.isInteger(d.stage) ? d.stage : mainIndex;
     if (st < 0 || st > firstOpen()) st = firstOpen();
     loadStage(st, d && d.path);
-    if (location.hash === "#metrics") openOps();
   }
   try { window.claude?.hot?.snapshot?.(() => ({ stage: L && L.index, path: S && S.path })); } catch {}
   const hot = window.claude?.hot;
